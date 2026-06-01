@@ -147,6 +147,77 @@ def fig_salinity_comparison(data: dict) -> Path:
     return out
 
 
+def fig_red_river(data: dict) -> Path:
+    sweep = data["sweeps"]["red_river_c"]
+    x = [p["c_river"] for p in sweep]
+    y = [p["P_max_W_m2"] for p in sweep]
+    fig, ax = plt.subplots(figsize=(6, 3.5))
+    ax.plot(x, y, "g-", lw=2)
+    ax.axhline(15, color="gray", ls="--", label="Literature anchor 15 W/m²")
+    ax.set_xlabel("River concentration c_river (mol/m³)")
+    ax.set_ylabel("P''_max (W/m²)")
+    ax.set_title("Estuary RED: max power vs river salinity (c_sea = 600)")
+    ax.legend(fontsize=8)
+    ax.grid(True, alpha=0.3)
+    out = FIGURES / "fig08_red_river_sweep.png"
+    fig.tight_layout()
+    fig.savefig(out, dpi=200)
+    plt.close(fig)
+    return out
+
+
+def fig_temperature(data: dict) -> Path:
+    sweep = data["sweeps"]["temperature"]
+    T = [p["T_K"] - 273.15 for p in sweep]
+    P = [p["P_W"] for p in sweep]
+    fig, ax = plt.subplots(figsize=(6, 3.5))
+    ax.plot(T, P, "o-", color="#c05621", lw=2)
+    ax.set_xlabel("Temperature (°C)")
+    ax.set_ylabel("PRO power P (W)")
+    ax.set_title("SGH-1 PRO power vs temperature (brine pair)")
+    ax.grid(True, alpha=0.3)
+    out = FIGURES / "fig09_temperature.png"
+    fig.tight_layout()
+    fig.savefig(out, dpi=200)
+    plt.close(fig)
+    return out
+
+
+def fig_net_energy(data: dict) -> Path:
+    rows = data["sweeps"]["net_energy"]
+    names = [r["scenario"] for r in rows]
+    P_net = [r["P_net_W"] for r in rows]
+    fig, ax = plt.subplots(figsize=(6, 3.5))
+    colors = ["#2c5282", "#e53e3e", "#805ad5", "#d69e2e"]
+    ax.barh(names, P_net, color=colors[: len(names)])
+    ax.axvline(0, color="black", lw=0.8)
+    ax.set_xlabel("Net skid power P_net (W)")
+    ax.set_title("Skid energy balance scenarios (parasitics model)")
+    ax.grid(True, axis="x", alpha=0.3)
+    out = FIGURES / "fig10_net_energy.png"
+    fig.tight_layout()
+    fig.savefig(out, dpi=200)
+    plt.close(fig)
+    return out
+
+
+def fig_tsc_injection(data: dict) -> Path:
+    sweep = data["tsc"]["injection_sweep"]
+    x = [p["I_soil_A"] * 1e6 for p in sweep]
+    y = [p["P_dissipated_uW"] for p in sweep]
+    fig, ax = plt.subplots(figsize=(6, 3.5))
+    ax.plot(x, y, "-", color="#553c9a", lw=2)
+    ax.set_xlabel("Injected soil current (µA)")
+    ax.set_ylabel("TSC dissipated power (µW)")
+    ax.set_title("Telluric Storm Coupling — illustrative 3-node network")
+    ax.grid(True, alpha=0.3)
+    out = FIGURES / "fig11_tsc_injection.png"
+    fig.tight_layout()
+    fig.savefig(out, dpi=200)
+    plt.close(fig)
+    return out
+
+
 def main():
     FIGURES.mkdir(parents=True, exist_ok=True)
     data = _load()
@@ -158,6 +229,10 @@ def main():
         fig_ultrasonic(data),
         fig_acoustic(data),
         fig_salinity_comparison(data),
+        fig_red_river(data),
+        fig_temperature(data),
+        fig_net_energy(data),
+        fig_tsc_injection(data),
     ]
     for p in paths:
         print(p)
