@@ -17,6 +17,10 @@ Math supplements: [docs/math/](docs/math/) · **Real-world anchors:** [REAL_WORL
 
 ```bash
 ./scripts/run_paper_pipeline.sh   # experiments + calibration + figures + PDF
+
+# Or from pdf-genesis (uses .pdf-genesis/manifest.json):
+pdf-genesis repo .                  # full pipeline + Black_2026 PDF
+pdf-genesis repo . --mode compile   # markdown compendium only
 ```
 
 ## One command

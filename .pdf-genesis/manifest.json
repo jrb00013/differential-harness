@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "title": "CHORUS-SGH-1: Brine-Gradient Power on a Bench Skid",
+  "subtitle": "Full PoC research report (pipeline + structured builder)",
+  "author": "Joseph Black",
+  "organization": "CHORUS Research Program",
+  "pipeline": "scripts/run_paper_pipeline.sh",
+  "builder": "scripts/build_research_paper.py",
+  "output": "papers/Black_2026_CHORUS_SGH1_PoC.pdf",
+  "footer": "Black (2026) · CHORUS-SGH-1 · differential-harness",
+  "compile": {
+    "include_globs": [
+      "README.md",
+      "papers/*.md",
+      "docs/**/*.md",
+      "hardware/BUILD_BLUEPRINT.md",
+      "hardware/COMPONENT_INDEX.md"
+    ],
+    "exclude": [
+      "docs/INVENTOR_NOTEBOOK.md",
+      "docs/SGH1_PATENT_AND_DEPLOYMENT.md"
+    ],
+    "figures_glob": "exports/figures/fig*.png",
+    "exports": [
+      "exports/paper_experiments.json",
+      "exports/sgh1_pi_groups.json",
+      "exports/real_world_calibration.json"
+    ],
+    "output": "papers/Repo_Compendium.pdf"
+  }
+}
