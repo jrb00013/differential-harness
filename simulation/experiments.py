@@ -23,6 +23,9 @@ from simulation.constants import (
 )
 from simulation.membrane_transport import concentration_polarization_profile, effective_driving_force_reduction
 from simulation.pro_cycle import steady_state_pro
+from simulation.parasitics import skid_energy_balance
+from simulation.symbolic_checks import run_symbolic_checks
+from simulation.tsc_network import solve_tsc, sweep_injection_current
 from simulation.ultrasonic_cp_gain import net_power_with_ultrasound
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -145,8 +148,99 @@ def sweep_ultrasonic(flux_gains: list[float] | None = None, A: float = 0.72) -> 
                 "flux_gain": g,
                 "P_base_W": r.P_pro_baseline_W,
                 "P_with_us_W": r.P_pro_us_W,
+                "P_us_input_W": r.P_us_input_W,
                 "P_us_W": r.P_us_input_W,
                 "P_net_gain_W": r.P_net_gain_W,
+            }
+        )
+    return rows
+
+
+def sweep_red_river_concentration(n: int = 31) -> list[dict]:
+    """RED: vary c_river at fixed c_sea."""
+    rows = []
+    for c_r in np.linspace(5, 200, n):
+        st = steady_state_pro(C_SEAWATER, float(c_r), A_mem=1.0)
+        E_N = nernst_mV(C_SEAWATER, float(c_r))
+        V_oc = 50 * E_N / 1000
+        R_int = max(V_oc**2 / (4 * P_BLUE_W_M2), 1e-9)
+        P_max = V_oc**2 / (4 * R_int)
+        rows.append(
+            {
+                "c_river": float(c_r),
+                "delta_pi_MPa": st.delta_pi / 1e6,
+                "E_N_mV": E_N,
+                "P_max_W_m2": P_max,
+            }
+        )
+    return rows
+
+
+def sweep_temperature(T_values: list[float] | None = None, A: float = 0.72) -> list[dict]:
+    if T_values is None:
+        T_values = [288.15, 293.15, 298.15, 303.15, 308.15]
+    rows = []
+    for T in T_values:
+        st = steady_state_pro(C_BRINE_8PCT, C_TREATED_WW, A, T=T)
+        rows.append(
+            {
+                "T_K": T,
+                "delta_pi_MPa": st.delta_pi / 1e6,
+                "P_W": st.P_elec_equiv_W,
+                "E_N_mV": st.nernst_V * 1000,
+            }
+        )
+    return rows
+
+
+def sweep_eta_membrane(n: int = 11) -> list[dict]:
+    rows = []
+    for eta in np.linspace(0.15, 0.55, n):
+        st = steady_state_pro(
+            C_BRINE_8PCT, C_TREATED_WW, 0.72, eta_mem=float(eta), eta_hyd=0.55
+        )
+        rows.append({"eta_mem": float(eta), "P_W": st.P_elec_equiv_W})
+    return rows
+
+
+def sweep_slip_length_red(b_nm: list[float] | None = None) -> list[dict]:
+    """Nanopore slip scaling G(b) ∝ (1 + 2b/h), illustrative h = 100 nm."""
+    if b_nm is None:
+        b_nm = [0, 10, 25, 50, 75, 100]
+    h_nm = 100.0
+    V_oc = 4.37
+    G0 = 4 * P_BLUE_W_M2 / (V_oc**2)
+    rows = []
+    for b in b_nm:
+        G = G0 * (1 + 2 * b / h_nm)
+        P_np = 0.25 * G * V_oc**2
+        rows.append({"slip_b_nm": b, "G_relative": G / G0, "P_np_W_m2": P_np})
+    return rows
+
+
+def net_energy_scenarios() -> list[dict]:
+    st = steady_state_pro(C_BRINE_8PCT, C_TREATED_WW, 0.72)
+    scenarios = [
+        ("baseline", 0.0, True),
+        ("with_US", 1.08, True),
+        ("no_PX", 0.0, False),
+        ("high_pump_loss", 0.0, True),
+    ]
+    rows = []
+    for name, P_us, use_px in scenarios:
+        bal = skid_energy_balance(
+            st,
+            P_us_W=P_us,
+            delta_P_pump_Pa=4.0e5 if name == "high_pump_loss" else 2.0e5,
+            use_px=use_px,
+        )
+        rows.append(
+            {
+                "scenario": name,
+                "P_pro_W": bal.P_pro_W,
+                "P_pump_W": bal.P_pump_W,
+                "P_px_W": bal.P_px_recovery_W,
+                "P_net_W": bal.P_net_W,
             }
         )
     return rows
@@ -244,8 +338,18 @@ def run_all() -> dict:
             "concentration_polarization": sweep_cp(),
             "ultrasonic_gain": sweep_ultrasonic(),
             "acoustic_SPL": sweep_acoustic_spl(),
+            "red_river_c": sweep_red_river_concentration(),
+            "temperature": sweep_temperature(),
+            "eta_membrane": sweep_eta_membrane(),
+            "slip_length_red": sweep_slip_length_red(),
+            "net_energy": net_energy_scenarios(),
         },
         "column_monte_carlo": column_monte_carlo(),
+        "tsc": {
+            "baseline": asdict(solve_tsc()),
+            "injection_sweep": sweep_injection_current(),
+        },
+        "symbolic_checks": run_symbolic_checks(),
     }
 
 
