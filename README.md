@@ -4,7 +4,7 @@
 
 ## Research paper (PoC)
 
-**Joseph Black** — *CHORUS-Skid SGH-1: PRO on Anthropogenic Brine Gradients* ([source](papers/black_2026_chorus_sgh1_poc.md) · [PDF](papers/Black_2026_CHORUS_SGH1_PoC.pdf))
+**Joseph Black** — *CHORUS-SGH-1: Brine-Gradient Power on a Bench Skid* ([PDF](papers/Black_2026_CHORUS_SGH1_PoC.pdf) · ~34 pages · [source](papers/black_2026_chorus_sgh1_poc.md))
 
 ```bash
 pip install -e ".[paper]"

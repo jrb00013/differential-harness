@@ -21,6 +21,9 @@ python scripts/build_research_paper.py
 | E5 Ultrasonic | Net gain positive only for g ≳ 1.5 at default parasitic |
 | E6 Acoustic | 96 dB → ~2.5 mW on 0.5 m² |
 | E7 Column MC | pv_hydro ~98.7% of median layer sum; blue_energy ~1.1% |
+| E8–E13 | RED c_river, temperature, η_mem, slip b, net energy, TSC |
+
+Also: `symbolic_checks.json`, `openscad_audit.json`.
 
 ## Figures
 
@@ -33,3 +36,4 @@ python scripts/build_research_paper.py
 | fig05_ultrasonic_net.png | P_net vs g |
 | fig06_acoustic_spl.png | mW vs SPL |
 | fig07_salinity_pairs.png | Δπ comparison |
+| fig08–fig11 | RED river, temperature, net energy, TSC |
