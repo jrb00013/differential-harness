@@ -156,11 +156,14 @@ Monte Carlo on $\ln P_k''$ with literature medians and uncertainties.
 
 ## 9. Layer F — PRO / anthropogenic brine (SGH-1)
 
+Full derivation: **`docs/math/PRO_LAYER_DERIVATION.md`**. Numeric Π-groups: **`docs/math/DIMENSIONLESS_GROUPS_NUMERIC.md`**. Skid balance: **`docs/math/SKID_ENERGY_BALANCE.md`**.
+
 $$\Delta\pi = iRT(c_\mathrm{brine} - c_\mathrm{feed})$$
 $$\Delta P^* \approx \Delta\pi/2$$
-$$P \approx \eta_\mathrm{mem}\eta_\mathrm{hyd}\,\dot m_w\,\Delta P, \quad \dot m_w \propto L_p A \Delta\pi$$
+$$\dot V_w = L_p A(\Delta\pi - \Delta P), \quad P \approx \eta_\mathrm{mem}\eta_\mathrm{hyd}\,\rho \dot V_w\,\Delta P$$
+$$\frac{c_w}{c_b} = \exp(J_w/k_m) \quad\text{(CP)}$$
 
-Bench: `python simulation/run_sizing.py`
+Bench: `python simulation/run_sizing.py` · Π-groups: `python -m simulation.pi_groups`
 
 ---
 
