@@ -1,0 +1,23 @@
+CHORUS-SGH-1 P&ID (ASCII)
+========================
+
+  [T-FEED]     [P-01]      [FILT]     [MF-FEED]
+      |          |           |            |
+      +----------+-----------+------------+
+                                              |
+                                        [STACK-SGH1]
+                                        feed | mem | draw
+                                              |
+      +----------+-----------+------------+
+      |          |           |            |
+  [T-BRINE]<--[PX]<-[MD-DRAW]<-[TURB/MOTOR]
+
+[CHOR] plenum wraps STACK (thermal/moist ports)
+[AEH]  panel faces traffic / plant noise source
+
+Legend:
+  T-FEED  low salinity tank
+  T-BRINE high salinity return
+  P-01    feed pump
+  PX      pressure exchanger / throttle
+  MF/MD   manifolds (see OpenSCAD)

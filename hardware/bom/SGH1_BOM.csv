@@ -1,0 +1,39 @@
+part_id,name,qty,material,process,supplier_notes,openscad_file
+FRAME-001,8020 extrusion 40x40mm,12m,6061-T6 aluminum,cut至frame_L/W/H,McMaster 8481T41,sgh1_skid_frame
+FRAME-002,Skid foot pad,4,rubber/mount,mold,generic 50mm foot,sgh1_skid_frame
+HOUS-001,Membrane housing shell,1,SS316L or HDPE,CNC or FDM,sgh1_membrane_housing
+HOUS-002,End cap feed,1,SS316L,CNC,sgh1_end_cap
+HOUS-003,End cap draw,1,SS316L,CNC,mirror feed cap
+HOUS-004,Pressure ring,2,SS316L,CNC,sgh1_pressure_vessel_ring
+MEM-001,Membrane plate/spacer,1,HDPE+CNC,Protomold or in-house,sgh1_membrane_plate
+MEM-002,Commercial PRO/FO membrane sheet,1,composite OEM,DuPont/Hydranautics FO module,
+MEM-003,Viton O-ring housing,2,rubber,size per housing OD,
+MANF-001,Feed manifold,1,PP or SS316,CNC,sgh1_manifold_feed
+MAND-001,Draw manifold rated pressure,1,SS316,CNC,sgh1_manifold_draw
+PUMP-001,Low-sal feed pump,1,12V diaphragm,3-5 L/min,
+PUMP-002,Prefilter 10um,1,polypropylene,inline,
+PX-001,Pressure exchanger or needle valve test loop,1,SS316,optional for bench,
+SENS-001,Pressure transducer 0-40 bar,2,piezo,draw + feed,
+SENS-002,Conductivity probe,2,SS,K=1.0,
+SENS-003,Flow meter,2,magnetic or turbine,
+DAQ-001,Raspberry Pi 4 + ADC HAT,1,electronics,Adafruit/MCP3008,
+CHOR-001,Thermal plenum enclosure,1,HDPE/PP,FDM,chorus_skid_enclosure
+AEH-001,Acoustic panel with Helmholtz cells,1,PLA+PVDF,FDM+bond piezo,chorus_aeh_panel
+AEH-002,PVDF piezo film 25um,24,polymer,Digikey LDT1-028K,chorus_aeh_panel
+AEH-003,Ultrasonic transducer 28kHz,1,PZT,feed CP assist,
+ELEC-001,Rectifier + supercap 5F,1,electronics,AEH harvest,
+FAST-001,M6 stainless bolt kit,1,SS316,,
+FAST-002,FNPT fittings kit,1,SS/PP,1/2 and 3/4 inch,
+PX-002,PX module body,1,SS316,CNC,sgh1_px_module
+TURB-001,Turbine test housing,1,Al/SS,optional bench,sgh1_turbine_housing
+SAFE-001,Relief valve block,1,SS316,set 1.2x DP*,sgh1_relief_valve_block
+STR-003,Drip tray,1,PP,weld,sgh1_drip_tray
+STR-004,Mount rails,2,Al extrusion,sgh1_mount_rail
+TANK-001,Feed drum adapter,1,PP,sgh1_feed_tank_adapter
+TANK-002,Brine drum adapter,1,PP,sgh1_brine_tank_adapter
+FIT-001,Tri-clamp flange 2in,4,SS316,sgh1_flange_adapter
+AEH-004,US mount ring,1,Al,sgh1_us_mount_ring
+RED-001,RED cartridge v2,1,prototype,sgh1_red_cartridge_v2
+TUB-001,1/2 SS braided hose 3m,4,hose,feed/draw/PX,
+TUB-002,3/4 brine return hose 2m,2,hose,,
+EST-001,Estimated bench BOM,1,USD,~2500-8000,excl membrane OEM,
