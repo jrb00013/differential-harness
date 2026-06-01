@@ -14,6 +14,9 @@ dependencies = [
   "pandas>=2.2",
 ]
 
+[project.optional-dependencies]
+paper = ["reportlab>=4.0"]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["simulation*"]

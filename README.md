@@ -2,6 +2,17 @@
 
 **CHORUS-Skid SGH-1 + AEH-1** — full hardware blueprint: **23 OpenSCAD parts**, simulation, DAQ, BOM, test protocol, patent playbook.
 
+## Research paper (PoC)
+
+**Joseph Black** — *CHORUS-Skid SGH-1: PRO on Anthropogenic Brine Gradients* ([source](papers/black_2026_chorus_sgh1_poc.md) · [PDF](papers/Black_2026_CHORUS_SGH1_PoC.pdf))
+
+```bash
+pip install -e ".[paper]"
+python scripts/build_research_paper.py
+```
+
+Math supplements: [docs/math/](docs/math/)
+
 ## One command
 
 ```bash

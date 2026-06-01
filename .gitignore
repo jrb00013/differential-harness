@@ -2,4 +2,5 @@
 __pycache__/
 *.egg-info/
 .ipynb_checkpoints/
+# Generated reports in exports/ stay local; the PoC paper in papers/ is tracked.
 exports/*.pdf
