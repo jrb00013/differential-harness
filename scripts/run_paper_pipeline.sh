@@ -3,6 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 source .venv/bin/activate 2>/dev/null || true
 python -m simulation.experiments
+python -m simulation.real_world_calibration
 python -m simulation.pi_groups
 python -m simulation.symbolic_checks
 python scripts/audit_openscad.py

@@ -1,0 +1,109 @@
+{
+  "case_studies": [
+    {
+      "name": "Statkraft Tofte",
+      "location": "Hurum, Norway",
+      "technology": "PRO (river/seawater)",
+      "power_W": 3000.0,
+      "power_density_W_m2": 1.0,
+      "flow_m3_day": null,
+      "c_high_mol_m3": 600.0,
+      "c_low_mol_m3": 20.0,
+      "energy_kWh_m3": null,
+      "status": "Pilot closed 2013",
+      "source": "Statkraft; Wikipedia; ForwardOsmosisTech"
+    },
+    {
+      "name": "REAPower Trapani",
+      "location": "Trapani, Italy",
+      "technology": "RED (brine/brackish)",
+      "power_W": 50.0,
+      "power_density_W_m2": 2.0,
+      "flow_m3_day": null,
+      "c_high_mol_m3": null,
+      "c_low_mol_m3": null,
+      "energy_kWh_m3": null,
+      "status": "Pilot ~50 m\u00b2 IEM",
+      "source": "Tedesco et al., Desalination; SciDirect S0376-7388"
+    },
+    {
+      "name": "Perth PSDP",
+      "location": "Kwinana, Australia",
+      "technology": "SWRO (not osmotic harvest)",
+      "power_W": null,
+      "power_density_W_m2": null,
+      "flow_m3_day": 144000.0,
+      "c_high_mol_m3": 1200.0,
+      "c_low_mol_m3": 600.0,
+      "energy_kWh_m3": 3.5,
+      "status": "Operational since 2006",
+      "source": "Wikipedia; Water Corp; ResearchGate"
+    },
+    {
+      "name": "Commercial PRO (literature)",
+      "location": "Lab/seawater",
+      "technology": "PRO",
+      "power_W": null,
+      "power_density_W_m2": 6.3,
+      "flow_m3_day": null,
+      "c_high_mol_m3": 600.0,
+      "c_low_mol_m3": 20.0,
+      "energy_kWh_m3": null,
+      "status": "Pedersen 2024 SSRN \u2014 30\u00b0C",
+      "source": "SSRN 4944813"
+    },
+    {
+      "name": "SGH-1 design target",
+      "location": "Bench skid",
+      "technology": "PRO (brine/WW)",
+      "power_W": 10.0,
+      "power_density_W_m2": 8.0,
+      "flow_m3_day": null,
+      "c_high_mol_m3": 1400.0,
+      "c_low_mol_m3": 5.0,
+      "energy_kWh_m3": null,
+      "status": "This repository",
+      "source": "sgh1_design.json"
+    }
+  ],
+  "perth_sidestream_pro": {
+    "label": "Perth-class brine + WW",
+    "c_draw": 1200.0,
+    "c_feed": 5.0,
+    "delta_pi_MPa": 5.924707300640513,
+    "P_W_Lp1e12": 1.2162897261298127,
+    "mixing_kWh_m3": 0.8263190098522333
+  },
+  "statkraft_estuary": {
+    "E_N_mV": 87.38553283617222,
+    "V_stack_V": 4.369276641808611,
+    "P_max_W_m2": 15.00831633070309,
+    "delta_pi_MPa": 2.8755901542857716
+  },
+  "perth_parasitic_fraction": {
+    "daily_desal_MWh": 504.0,
+    "daily_pro_kWh_at_10W": 0.24,
+    "fraction_of_plant_energy_pct": 4.761904761904762e-05,
+    "note": "Single bench skid; scaled fleet would multiply P_pro"
+  },
+  "commercial_pro_6p3": {
+    "P_W_m2": 6.3,
+    "A_m2_for_10W": 1.5873015873015874,
+    "P_est_W": 10.0
+  },
+  "mixing_energy": {
+    "seawater_brine_kWh_m3": 0.8263190098522333,
+    "literature_WA_table": 0.14
+  },
+  "tsc_baseline": {
+    "psi_a_V": 120.96774193548383,
+    "psi_s_V": 145.16129032258058,
+    "psi_w_V": 80.6451612903225,
+    "P_dissipated_W": 0.00014516129032258055,
+    "currents_A": [
+      0.0,
+      1e-06,
+      0.0
+    ]
+  }
+}

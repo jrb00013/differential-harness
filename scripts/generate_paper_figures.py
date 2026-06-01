@@ -218,6 +218,45 @@ def fig_tsc_injection(data: dict) -> Path:
     return out
 
 
+def fig_brine_pairs(data: dict) -> Path:
+    sweep = data["sweeps"].get("brine_feed_pairs", data["sweeps"]["salinity_pairs"])
+    names = [p["name"][:18] for p in sweep]
+    dpi = [p["delta_pi_MPa"] for p in sweep]
+    fig, ax = plt.subplots(figsize=(6, 3.5))
+    ax.barh(names, dpi, color=["#e53e3e", "#dd6b20", "#3182ce", "#38a169"][: len(names)])
+    ax.set_xlabel("Δπ (MPa)")
+    ax.set_title("Literature-backed salinity pairs — osmotic driving force")
+    ax.grid(True, axis="x", alpha=0.3)
+    out = FIGURES / "fig12_brine_feed_pairs.png"
+    fig.tight_layout()
+    fig.savefig(out, dpi=200)
+    plt.close(fig)
+    return out
+
+
+def fig_design_vs_literature(data: dict) -> Path:
+    rw = data.get("real_world", {})
+    a = 0.72
+    labels = ["SGH-1 model\n(L_p=1e-12)", "Perth-class\npair", "Lit. 6.3 W/m²\n@0.72 m²"]
+    p_vals = [
+        data["sg_h1_baseline"]["P_default_Lp_W"],
+        rw.get("perth_sidestream_pro", {}).get("P_W_Lp1e12", 0),
+        6.3 * a,
+    ]
+    fig, ax = plt.subplots(figsize=(6, 3.5))
+    ax.bar(labels, p_vals, color=["#2c5282", "#ed8936", "#48bb78"])
+    ax.axhline(10, color="crimson", ls="--", label="10 W target")
+    ax.set_ylabel("Power (W)")
+    ax.set_title("Model vs real-world calibrated scenarios")
+    ax.legend(fontsize=8)
+    ax.grid(True, axis="y", alpha=0.3)
+    out = FIGURES / "fig13_literature_calibration.png"
+    fig.tight_layout()
+    fig.savefig(out, dpi=200)
+    plt.close(fig)
+    return out
+
+
 def main():
     FIGURES.mkdir(parents=True, exist_ok=True)
     data = _load()
@@ -233,6 +272,8 @@ def main():
         fig_temperature(data),
         fig_net_energy(data),
         fig_tsc_injection(data),
+        fig_brine_pairs(data),
+        fig_design_vs_literature(data),
     ]
     for p in paths:
         print(p)

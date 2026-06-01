@@ -325,6 +325,30 @@ def future_work_paragraphs(ctx: dict) -> list[str]:
     ]
 
 
+def real_world_paragraphs(ctx: dict) -> list[str]:
+    rw = ctx.get("real_world", {})
+    pf = rw.get("perth_parasitic_fraction", {})
+    ps = rw.get("perth_sidestream_pro", {})
+    return [
+        "<b>Real-world anchoring</b> distinguishes this report from purely theoretical CHORUS modeling. "
+        "SWRO concentrate salinity is documented at <b>52–70 g/L</b> (1.5–2× seawater), matching "
+        f"~{1200:.0f} mol/m³ in our Perth-class pair versus {1400:.0f} mol/m³ for the SGH-1 nominal 8 wt% brine.",
+        "The Statkraft Tofte PRO pilot (2009–2013) demonstrated the technology but delivered only "
+        "<b>2–4 kW</b> at roughly <b>1 W/m²</b> membrane performance—below the <b>5 W/m²</b> commercial threshold. "
+        "Statkraft discontinued investment in 2013 when membranes could not reach cost targets.",
+        f"Recent seawater PRO work (Pedersen et al., 2024) reports <b>6.3 W/m²</b> with commercial RO membranes "
+        "at 30°C and ~15 bar—validating our <b>8 W/m²</b> design density as ambitious but literature-supported.",
+        f"Perth Seawater Desalination Plant produces <b>144,000 m³/d</b> at <b>3.2–3.8 kWh/m³</b> (wind-offset). "
+        f"A single 10 W bench skid offsets only ~{pf.get('fraction_of_plant_energy_pct', 0):.4f}% of plant "
+        "electrical load—honest scale requires fleets of modules or higher P''.",
+        f"WA mixing-energy analysis gives <b>~0.14 kWh/m³</b> for seawater+brine (502 kJ/m³)—the thermodynamic "
+        f"motivation for sidestream PRO. Our Perth-class PRO model at L_p=1×10⁻¹² gives "
+        f"<b>{ps.get('P_W_Lp1e12', 0):.2f} W</b> on 0.72 m².",
+        "REAPower Trapani (Italy) achieved <b>40–60 W</b> gross RED at <b>1.6–2.6 W/m²</b> per cell pair on "
+        "~50 m² membrane area—estuary RED remains real but lower power density than optimistic 15 W/m² anchors.",
+    ]
+
+
 def abstract_paragraphs(ctx: dict) -> list[str]:
     b, e, mc, p = ctx["base"], ctx["exp"]["estuary_RED"], ctx["mc"], ctx["pi"]
     return [

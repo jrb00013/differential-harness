@@ -57,6 +57,7 @@ from papers.paper_sections import (  # noqa: E402
     test_protocol_paragraphs,
     tsc_column_paragraphs,
     worked_examples_paragraphs,
+    real_world_paragraphs,
 )
 
 EXPORTS = ROOT / "exports"
@@ -87,6 +88,7 @@ class PaperBuilder:
             "claims": self.design.get("claims", self.chorus.get("claims", {})),
             "openscad": self.openscad,
             "symbolic": self.exp.get("symbolic_checks", {}),
+            "real_world": self.exp.get("real_world", {}),
         }
         self.st = self._make_styles()
         self.story: list = []
@@ -224,6 +226,8 @@ class PaperBuilder:
         self.pb()
         self._literature()
         self.pb()
+        self._real_world_section()
+        self.pb()
         self._theory_layers()
         self.pb()
         self._sgh1_system()
@@ -275,6 +279,7 @@ class PaperBuilder:
             "Abstract",
             "1 Introduction",
             "2 Background and prior art",
+            "2A Real-world data and plant case studies",
             "3 Theoretical framework",
             "  3.1 Layer A — Osmotic mixing and blue energy (RED)",
             "  3.2 Layer B — Moist-electric and hydrovoltaic (CHOR)",
@@ -342,6 +347,48 @@ class PaperBuilder:
     def _literature(self) -> None:
         self.h1("2. Background and prior art")
         self.paras(literature_paragraphs(self.ctx))
+
+    def _real_world_section(self) -> None:
+        self.h1("2A. Real-world data and implementation anchors")
+        self.paras(real_world_paragraphs(self.ctx))
+        rw = self.ctx.get("real_world", {})
+        if rw.get("case_studies"):
+            rows = [["Plant", "Tech", "P or P''", "Status", "Source"]]
+            for c in rw["case_studies"]:
+                p_disp = ""
+                if c.get("power_W"):
+                    p_disp = f"{c['power_W']:.0f} W"
+                elif c.get("power_density_W_m2"):
+                    p_disp = f"{c['power_density_W_m2']:.1f} W/m²"
+                elif c.get("energy_kWh_m3"):
+                    p_disp = f"{c['energy_kWh_m3']:.1f} kWh/m³"
+                rows.append([
+                    c["name"][:22],
+                    c["technology"][:12],
+                    p_disp,
+                    c["status"][:20],
+                    c["source"][:28],
+                ])
+            self.table(rows, [1.3 * inch, 1.0 * inch, 1.0 * inch, 1.2 * inch, 1.9 * inch],
+                       "Operational and literature reference plants.")
+        self.h2("2A.1 Salinity pairs mapped into simulation")
+        if "brine_feed_pairs" in self.exp.get("sweeps", {}):
+            rows = [["Pair", "c_draw", "c_feed", "Δπ MPa", "P (W) @0.72m²"]]
+            for p in self.exp["sweeps"]["brine_feed_pairs"]:
+                rows.append([
+                    p["name"][:24], f"{p['c_draw']:.0f}", f"{p['c_feed']:.0f}",
+                    f"{p['delta_pi_MPa']:.2f}", f"{p['P_W']:.2f}",
+                ])
+            self.table(rows, [2.0 * inch, 0.7 * inch, 0.7 * inch, 0.8 * inch, 0.9 * inch],
+                       "PRO model at L_p=1×10⁻¹² — compare to bench T1.")
+        self.figure("fig12_brine_feed_pairs.png",
+                    "Osmotic pressure difference for literature-backed feed/draw pairs.")
+        self.figure("fig13_literature_calibration.png",
+                    "SGH-1 model power vs Perth-class pair vs literature 6.3 W/m² reference.")
+        self.p(
+            "Full citation list and concentration derivations: docs/math/REAL_WORLD_DATA.md. "
+            "Merge command: python -m simulation.real_world_calibration."
+        )
 
     def _theory_layers(self) -> None:
         self.h1("3. Theoretical framework")
@@ -686,7 +733,16 @@ class PaperBuilder:
         ]
         for part in parts:
             self.p(f"• hardware/openscad/{part}")
-        self.h1("Appendix G — Reproducibility commands")
+        self.h1("Appendix G — Real-world calibration JSON")
+        rw = self.exp.get("real_world", {})
+        if rw:
+            self.p(
+                f"Perth sidestream: Δπ={rw.get('perth_sidestream_pro', {}).get('delta_pi_MPa', 0):.2f} MPa, "
+                f"P={rw.get('perth_sidestream_pro', {}).get('P_W_Lp1e12', 0):.2f} W. "
+                f"Mixing energy seawater+brine: {rw.get('mixing_energy', {}).get('literature_WA_table', 0.14)} kWh/m³ "
+                f"(lit.) vs model {rw.get('mixing_energy', {}).get('seawater_brine_kWh_m3', 0):.3f} kWh/m³."
+            )
+        self.h1("Appendix H — Reproducibility commands")
         cmds = [
             "python -m simulation.experiments",
             "python -m simulation.pi_groups",

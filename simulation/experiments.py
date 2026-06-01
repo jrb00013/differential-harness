@@ -12,15 +12,18 @@ import numpy as np
 from simulation.acoustic_harvest import harvest_power, sweep_spl
 from simulation.constants import (
     C_BRINE_8PCT,
+    C_BRINE_PERth,
     C_RIVER,
     C_SEAWATER,
     C_TREATED_WW,
     F_FARADAY,
     I_NACL,
     P_BLUE_W_M2,
+    P_PRO_COMMERCIAL_W_M2,
     R_GAS,
     T_REF,
 )
+from simulation.real_world_calibration import export_all as real_world_export
 from simulation.membrane_transport import concentration_polarization_profile, effective_driving_force_reduction
 from simulation.pro_cycle import steady_state_pro
 from simulation.parasitics import skid_energy_balance
@@ -353,10 +356,37 @@ def run_all() -> dict:
     }
 
 
+def sweep_brine_feed_pairs() -> list[dict]:
+    """Literature-backed salinity pairs for PRO."""
+    pairs = [
+        ("SGH-1 nominal (8 wt%)", C_BRINE_8PCT, C_TREATED_WW),
+        ("Perth brine 70 g/L + WW", C_BRINE_PERth, C_TREATED_WW),
+        ("Perth brine + seawater", C_BRINE_PERth, C_SEAWATER),
+        ("Estuary RED", C_SEAWATER, C_RIVER),
+    ]
+    rows = []
+    for name, c_d, c_f in pairs:
+        st = steady_state_pro(c_d, c_f, A_mem=0.72)
+        rows.append({
+            "name": name,
+            "c_draw": c_d,
+            "c_feed": c_f,
+            "delta_pi_MPa": st.delta_pi / 1e6,
+            "P_W": st.P_elec_equiv_W,
+            "P_W_m2": st.P_density_W_m2,
+        })
+    return rows
+
+
 def export(path: Path | None = None) -> Path:
     path = path or EXPORTS / "paper_experiments.json"
     data = run_all()
+    data["sweeps"]["brine_feed_pairs"] = sweep_brine_feed_pairs()
+    data["real_world"] = real_world_export()
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    (EXPORTS / "real_world_calibration.json").write_text(
+        json.dumps(data["real_world"], indent=2), encoding="utf-8"
+    )
     return path
 
 

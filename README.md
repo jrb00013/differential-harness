@@ -13,7 +13,11 @@ python scripts/generate_paper_figures.py  # exports/figures/*.png
 python scripts/build_research_paper.py  # papers/Black_2026_CHORUS_SGH1_PoC.pdf (~20+ pages with figures)
 ```
 
-Math supplements: [docs/math/](docs/math/)
+Math supplements: [docs/math/](docs/math/) · **Real-world anchors:** [REAL_WORLD_DATA.md](docs/math/REAL_WORLD_DATA.md) (Statkraft, Perth, Trapani, 6.3 W/m² PRO)
+
+```bash
+./scripts/run_paper_pipeline.sh   # experiments + calibration + figures + PDF
+```
 
 ## One command
 
