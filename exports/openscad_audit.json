@@ -1,0 +1,346 @@
+{
+  "generated_constants": {
+    "P_target_W": 10.0,
+    "A_mem_m2": 0.72,
+    "active_w": 200.0,
+    "active_h": 300.0,
+    "n_plates": 12.0,
+    "housing_od": 280.0,
+    "housing_len": 264.0,
+    "bolt_circle": 240.0,
+    "frame_L": 664.0,
+    "frame_W": 480.0,
+    "frame_H": 900.0,
+    "delta_P_bar": 34.58,
+    "plate_pitch": 12.0,
+    "stack_length_mm": 184.0,
+    "wall_mm": 10,
+    "bore_id_mm": 260.0
+  },
+  "aeh_panel": {
+    "panel_w_mm": 288.0,
+    "panel_h_mm": 400,
+    "panel_t_mm": 28,
+    "resonator_cells": 24,
+    "neck_d_mm": 8,
+    "cavity_d_mm": 35,
+    "estimated_cell_pitch_x_mm": 41.142857142857146,
+    "estimated_cell_pitch_z_mm": 80.0
+  },
+  "parts": [
+    {
+      "file": "chorus_aeh_panel.scad",
+      "includes": [
+        "lib/generated_constants.scad"
+      ],
+      "modules": [
+        "helmholtz_cell",
+        "aeh_panel",
+        "aeh_panel_part"
+      ],
+      "local_parameters": {
+        "panel_w": "frame_W * 0.6",
+        "panel_h": "400",
+        "panel_t": "28",
+        "n_resonators_x": "6",
+        "n_resonators_y": "4",
+        "neck_d": "8",
+        "cavity_d": "35"
+      },
+      "uses_generated_constants": true,
+      "lines": 42
+    },
+    {
+      "file": "chorus_skid_enclosure.scad",
+      "includes": [
+        "lib/generated_constants.scad"
+      ],
+      "modules": [
+        "chorus_enclosure",
+        "chorus_enclosure_part"
+      ],
+      "local_parameters": {},
+      "uses_generated_constants": true,
+      "lines": 30
+    },
+    {
+      "file": "sgh1_assembly.scad",
+      "includes": [
+        "lib/generated_constants.scad"
+      ],
+      "modules": [],
+      "local_parameters": {
+        "x0": "frame_L/2 - housing_len/2 - 80",
+        "y0": "frame_W/2",
+        "z0": "120"
+      },
+      "uses_generated_constants": true,
+      "lines": 35
+    },
+    {
+      "file": "sgh1_brine_tank_adapter.scad",
+      "includes": [],
+      "modules": [
+        "brine_tank_adapter"
+      ],
+      "local_parameters": {},
+      "uses_generated_constants": false,
+      "lines": 12
+    },
+    {
+      "file": "sgh1_drip_tray.scad",
+      "includes": [
+        "lib/generated_constants.scad"
+      ],
+      "modules": [
+        "drip_tray"
+      ],
+      "local_parameters": {},
+      "uses_generated_constants": true,
+      "lines": 12
+    },
+    {
+      "file": "sgh1_end_cap.scad",
+      "includes": [
+        "lib/generated_constants.scad",
+        "lib/utils.scad"
+      ],
+      "modules": [
+        "end_cap"
+      ],
+      "local_parameters": {
+        "wall": "10",
+        "cap_t": "18"
+      },
+      "uses_generated_constants": true,
+      "lines": 34
+    },
+    {
+      "file": "sgh1_exploded_assembly.scad",
+      "includes": [
+        "lib/generated_constants.scad"
+      ],
+      "modules": [],
+      "local_parameters": {
+        "gap": "80",
+        "x0": "frame_L/2",
+        "y0": "frame_W/2"
+      },
+      "uses_generated_constants": true,
+      "lines": 29
+    },
+    {
+      "file": "sgh1_feed_tank_adapter.scad",
+      "includes": [],
+      "modules": [
+        "feed_tank_adapter"
+      ],
+      "local_parameters": {},
+      "uses_generated_constants": false,
+      "lines": 12
+    },
+    {
+      "file": "sgh1_flange_adapter.scad",
+      "includes": [],
+      "modules": [
+        "flange_adapter"
+      ],
+      "local_parameters": {},
+      "uses_generated_constants": false,
+      "lines": 11
+    },
+    {
+      "file": "sgh1_manifold_draw.scad",
+      "includes": [
+        "lib/generated_constants.scad",
+        "lib/utils.scad"
+      ],
+      "modules": [
+        "draw_manifold",
+        "sgh1_manifold_draw_part"
+      ],
+      "local_parameters": {},
+      "uses_generated_constants": true,
+      "lines": 38
+    },
+    {
+      "file": "sgh1_manifold_feed.scad",
+      "includes": [
+        "lib/generated_constants.scad",
+        "lib/utils.scad"
+      ],
+      "modules": [
+        "feed_manifold",
+        "sgh1_manifold_feed_part"
+      ],
+      "local_parameters": {},
+      "uses_generated_constants": true,
+      "lines": 34
+    },
+    {
+      "file": "sgh1_membrane_housing.scad",
+      "includes": [
+        "lib/generated_constants.scad",
+        "lib/utils.scad"
+      ],
+      "modules": [
+        "housing_shell",
+        "sgh1_membrane_housing_part"
+      ],
+      "local_parameters": {
+        "wall": "10"
+      },
+      "uses_generated_constants": true,
+      "lines": 27
+    },
+    {
+      "file": "sgh1_membrane_plate.scad",
+      "includes": [
+        "lib/generated_constants.scad",
+        "lib/utils.scad"
+      ],
+      "modules": [
+        "feed_spacer_pattern",
+        "membrane_plate"
+      ],
+      "local_parameters": {
+        "plate_t": "6",
+        "channel_w": "2",
+        "channel_gap": "1.5",
+        "margin": "15"
+      },
+      "uses_generated_constants": true,
+      "lines": 35
+    },
+    {
+      "file": "sgh1_mount_rail.scad",
+      "includes": [
+        "lib/generated_constants.scad"
+      ],
+      "modules": [
+        "mount_rail"
+      ],
+      "local_parameters": {},
+      "uses_generated_constants": true,
+      "lines": 8
+    },
+    {
+      "file": "sgh1_pressure_vessel_ring.scad",
+      "includes": [
+        "lib/generated_constants.scad"
+      ],
+      "modules": [
+        "pressure_ring"
+      ],
+      "local_parameters": {},
+      "uses_generated_constants": true,
+      "lines": 11
+    },
+    {
+      "file": "sgh1_pump_mount.scad",
+      "includes": [
+        "lib/generated_constants.scad"
+      ],
+      "modules": [
+        "pump_mount",
+        "pump_mount_part"
+      ],
+      "local_parameters": {},
+      "uses_generated_constants": true,
+      "lines": 22
+    },
+    {
+      "file": "sgh1_px_module.scad",
+      "includes": [
+        "lib/generated_constants.scad",
+        "lib/utils.scad"
+      ],
+      "modules": [
+        "px_module"
+      ],
+      "local_parameters": {},
+      "uses_generated_constants": true,
+      "lines": 18
+    },
+    {
+      "file": "sgh1_red_cartridge_v2.scad",
+      "includes": [
+        "lib/generated_constants.scad"
+      ],
+      "modules": [
+        "red_cartridge_v2"
+      ],
+      "local_parameters": {},
+      "uses_generated_constants": true,
+      "lines": 15
+    },
+    {
+      "file": "sgh1_relief_valve_block.scad",
+      "includes": [
+        "lib/generated_constants.scad"
+      ],
+      "modules": [
+        "relief_valve_block"
+      ],
+      "local_parameters": {},
+      "uses_generated_constants": true,
+      "lines": 14
+    },
+    {
+      "file": "sgh1_sensor_bracket.scad",
+      "includes": [
+        "lib/generated_constants.scad"
+      ],
+      "modules": [
+        "sensor_bracket"
+      ],
+      "local_parameters": {},
+      "uses_generated_constants": true,
+      "lines": 21
+    },
+    {
+      "file": "sgh1_skid_frame.scad",
+      "includes": [
+        "lib/generated_constants.scad"
+      ],
+      "modules": [
+        "extrusion_bar",
+        "skid_frame",
+        "sgh1_skid_frame_part"
+      ],
+      "local_parameters": {
+        "profile": "40",
+        "wall_t": "3"
+      },
+      "uses_generated_constants": true,
+      "lines": 51
+    },
+    {
+      "file": "sgh1_turbine_housing.scad",
+      "includes": [
+        "lib/generated_constants.scad"
+      ],
+      "modules": [
+        "turbine_housing"
+      ],
+      "local_parameters": {},
+      "uses_generated_constants": true,
+      "lines": 16
+    },
+    {
+      "file": "sgh1_us_mount_ring.scad",
+      "includes": [],
+      "modules": [
+        "us_mount_ring"
+      ],
+      "local_parameters": {},
+      "uses_generated_constants": false,
+      "lines": 9
+    }
+  ],
+  "part_count": 23,
+  "assembly_files": [
+    "sgh1_assembly.scad",
+    "sgh1_exploded_assembly.scad"
+  ]
+}

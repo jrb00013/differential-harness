@@ -1,0 +1,11 @@
+{
+  "available": true,
+  "delta_pi_MPa_brine_pair": 6.915905288999999,
+  "E_N_mV_brine_pair": 144.7647208666358,
+  "kim_baker_critical_points": [
+    "dpi/2"
+  ],
+  "kim_baker_at_half_delta_pi": "dpi/2",
+  "latex_delta_pi": "R T i \\left(c_{h} - c_{l}\\right)",
+  "latex_E_N": "\\frac{R T \\log{\\left(\\frac{c_{h}}{c_{l}} \\right)}}{F z}"
+}
