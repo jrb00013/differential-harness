@@ -1,0 +1,15 @@
+                    CHORUS-SGH-1 DAQ (Raspberry Pi 4)
+                    ================================
+                           [MCP3008 HAT]
+     P_feed ----[4-20mA]--- CH0        CH4 --- cond_feed
+     P_draw ----[4-20mA]--- CH1        CH5 --- cond_draw
+     Q_feed -------------- CH2        CH6 --- T_feed
+     Q_draw -------------- CH3        CH7 --- T_draw
+
+     [USB] logger.py / dashboard.py
+
+     AEH Panel ----[rectifier]----[5F cap]----(optional 5V buck)
+     US Xducer ----[driver board]---- GPIO enable (GPIO17)
+
+     [Relay K1] Feed pump 120VAC or 12V
+     [Relay K2] E-stop NC chain
