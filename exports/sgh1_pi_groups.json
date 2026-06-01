@@ -1,0 +1,10 @@
+{
+  "Pi1_delta_P_over_delta_pi": 0.5,
+  "Pi2_Jw_scaled": 4.158211788877279e-11,
+  "Pi3_Pe_order": 0.6916290112463191,
+  "Pi4_area_law": 0.576,
+  "Pi5_sim_over_target": 0.165748513806955,
+  "L_p_required_for_target": 6.033236600629109e-12,
+  "P_sim_W": 1.65748513806955,
+  "P_target_W": 10.0
+}
