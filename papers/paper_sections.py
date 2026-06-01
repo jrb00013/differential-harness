@@ -333,5 +333,65 @@ def abstract_paragraphs(ctx: dict) -> list[str]:
         "We present CHORUS multi-layer column accounting and CHORUS-Skid SGH-1 PRO bench hardware with AEH acoustic coupling.",
         f"Kim–Baker ΔP* = {b['delta_P_star_bar']:.0f} bar. Monte Carlo column (N={mc['N']}): median {mc['column_MW_median']:.1f} MW/km². "
         f"PRO model: {b['P_default_Lp_W']:.2f} W vs {ctx['sz']['P_target_W']:.0f} W target; L_p* = {p['L_p_required_for_target']:.2e}. "
-        "Seven figures, full layer derivations (A–F), 23-part CAD, T0–T2 protocols. Tier-1 vs tier-2 claims explicit.",
+        "Eleven figures, SymPy verification, OpenSCAD deep-dive, full E1 sweep tables, BOM and patent appendices. "
+        "Tier-1 vs tier-2 claims explicit.",
+    ]
+
+
+def openscad_paragraphs(ctx: dict) -> list[str]:
+    oc = ctx.get("openscad", {})
+    gc = oc.get("generated_constants", {})
+    aeh = oc.get("aeh_panel", {})
+    n = oc.get("part_count", 23)
+    return [
+        f"The mechanical digital twin comprises <b>{n} OpenSCAD parts</b> driven by "
+        f"<font face='Courier'>lib/generated_constants.scad</font> emitted from "
+        f"<font face='Courier'>simulation/run_sizing.py</font>. Changing P_target or plate geometry "
+        "rebuilds housing OD, frame envelope, and ΔP_bar in one command—eliminating unit drift between "
+        "simulation, drawings, and STL export.",
+        f"<b>PRO housing:</b> cylinder OD {gc.get('housing_od', 280):.0f} mm, stack length "
+        f"{gc.get('stack_length_mm', 264):.0f} mm (n_plates={gc.get('n_plates', 12):.0f} × pitch "
+        f"{gc.get('plate_pitch', 12):.0f} mm + 40 mm end allowance), bore ID ≈ OD − 20 mm wall. "
+        f"Active window per plate {gc.get('active_w', 200):.0f}×{gc.get('active_h', 300):.0f} mm → "
+        f"A_mem = {gc.get('A_mem_m2', 0.72):.2f} m² total.",
+        f"<b>AEH panel:</b> {aeh.get('resonator_cells', 24)} Helmholtz cells "
+        f"({aeh.get('panel_w_mm', 288):.0f}×{aeh.get('panel_h_mm', 400):.0f}×{aeh.get('panel_t_mm', 28):.0f} mm), "
+        f"neck Ø{aeh.get('neck_d_mm', 8):.0f} mm, cavity Ø{aeh.get('cavity_d_mm', 35):.0f} mm. "
+        "Piezo pockets on rear face; 28 kHz US boss on feed-side assist path.",
+        "Assemblies <font face='Courier'>sgh1_assembly.scad</font> and "
+        "<font face='Courier'>sgh1_exploded_assembly.scad</font> document install order. "
+        "v2 <font face='Courier'>sgh1_red_cartridge_v2.scad</font> shares bolt circle for RED nanopore experiments. "
+        "See docs/hardware/OPENSCAD_DEEP_DIVE.md and exports/openscad_audit.json.",
+    ]
+
+
+def sympy_paragraphs(ctx: dict) -> list[str]:
+    sym = ctx.get("symbolic", {})
+    if not sym.get("available"):
+        return ["SymPy symbolic verification unavailable in this build environment."]
+    return [
+        "Independent symbolic algebra (simulation/symbolic_checks.py) reproduces key limits:",
+        f"Brine pair Δπ = {sym.get('delta_pi_MPa_brine_pair', 0):.3f} MPa (numeric subs), "
+        f"E_N = {sym.get('E_N_mV_brine_pair', 0):.1f} mV.",
+        f"Differentiating P_hyd ∝ (Δπ−ΔP)ΔP gives critical point {sym.get('kim_baker_at_half_delta_pi', 'dpi/2')} "
+        "— confirming Kim–Baker without discrete sweep.",
+        "LaTeX forms are exported to exports/symbolic_checks.json for thesis appendices.",
+    ]
+
+
+def patent_draft_paragraphs(ctx: dict) -> list[str]:
+    return [
+        "<b>Draft independent claims (not filed — not legal advice):</b>",
+        "(1) An integrated energy skid comprising a pressure-retarded osmosis membrane stack fed by "
+        "anthropogenic desalination reject brine as draw and treated wastewater as feed; a moisture/thermal "
+        "plenum enclosure; an acoustic panel with piezoelectric harvest and ultrasonic transducer on the feed path; "
+        "and a shared data-acquisition bus correlating pressure, flow, and conductivity.",
+        "(2) The skid of claim 1 wherein hydraulic pressure on the draw side is controlled to "
+        "0.4–0.6 of osmotic pressure difference via feedback from dual conductivity sensors.",
+        "(3) A method of enhancing PRO permeate flux by applying ultrasonic energy to reduce concentration "
+        "polarization while subtracting transducer parasitic load from net power accounting.",
+        "(4) A Telluric Storm Coupling conductance network routing charge among atmosphere, soil, and water nodes "
+        "to improve utilization of high-impedance moist-electric or microbial harvesters.",
+        "Prior art search targets: Statkraft PRO, modern RED nanopores, Air-gen moisture generators, "
+        "and desal sidestream valorization patents.",
     ]

@@ -3,9 +3,17 @@
 
 from __future__ import annotations
 
+import csv
 import json
 import sys
 from pathlib import Path
+
+TITLE_SHORT = "CHORUS-SGH-1: Brine-Gradient Power on a Bench Skid"
+SUBTITLE_LONG = (
+    "A Proof-of-Concept Framework for Pressure-Retarded Osmosis on Anthropogenic Brine "
+    "Gradients with Acoustic Harvest, Ultrasonic Membrane Assist, and Column-Scale "
+    "Multi-Physics Energy Accounting"
+)
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
@@ -40,9 +48,12 @@ from papers.paper_sections import (  # noqa: E402
     layer_f_paragraphs,
     literature_paragraphs,
     notebook_walkthrough_paragraphs,
+    openscad_paragraphs,
     parasitic_balance_paragraphs,
+    patent_draft_paragraphs,
     ranked_concepts_paragraphs,
     safety_paragraphs,
+    sympy_paragraphs,
     test_protocol_paragraphs,
     tsc_column_paragraphs,
     worked_examples_paragraphs,
@@ -63,6 +74,9 @@ class PaperBuilder:
         self.res = self.chorus["results"]
         self.base = self.exp["sg_h1_baseline"]
         self.mc = self.exp["column_monte_carlo"]
+        oc_path = EXPORTS / "openscad_audit.json"
+        self.openscad = json.loads(oc_path.read_text()) if oc_path.exists() else {}
+        self.bom = self._load_bom()
         self.ctx = {
             "base": self.base,
             "exp": self.exp,
@@ -71,6 +85,8 @@ class PaperBuilder:
             "sz": self.sz,
             "mc": self.mc,
             "claims": self.design.get("claims", self.chorus.get("claims", {})),
+            "openscad": self.openscad,
+            "symbolic": self.exp.get("symbolic_checks", {}),
         }
         self.st = self._make_styles()
         self.story: list = []
@@ -81,12 +97,24 @@ class PaperBuilder:
     def _load(name: str) -> dict:
         return json.loads((EXPORTS / name).read_text(encoding="utf-8"))
 
+    @staticmethod
+    def _load_bom() -> list[dict]:
+        path = ROOT / "hardware" / "bom" / "SGH1_BOM.csv"
+        if not path.exists():
+            return []
+        with path.open(encoding="utf-8") as f:
+            return list(csv.DictReader(f))
+
     def _make_styles(self) -> dict:
         b = getSampleStyleSheet()
         return {
             "title": ParagraphStyle(
                 "T", parent=b["Title"], fontSize=16, leading=20, alignment=TA_CENTER,
                 spaceAfter=12, textColor=colors.HexColor("#1a365d"),
+            ),
+            "subtitle": ParagraphStyle(
+                "ST", parent=b["Normal"], fontSize=10, leading=13, alignment=TA_CENTER,
+                spaceAfter=10, textColor=colors.HexColor("#4a5568"), leftIndent=32, rightIndent=32,
             ),
             "author": ParagraphStyle("A", parent=b["Normal"], fontSize=12, alignment=TA_CENTER, spaceAfter=4),
             "affil": ParagraphStyle(
@@ -206,6 +234,8 @@ class PaperBuilder:
         self.pb()
         self._hardware_full()
         self.pb()
+        self._openscad_deep_dive()
+        self.pb()
         self._testing()
         self.pb()
         self._worked_examples()
@@ -222,17 +252,14 @@ class PaperBuilder:
         self._references_full()
 
     def _front_matter(self) -> None:
-        self.sp(0.4)
-        self.story.append(Paragraph(
-            "CHORUS-Skid SGH-1: A Proof-of-Concept Framework for<br/>"
-            "Pressure-Retarded Osmosis on Anthropogenic Brine Gradients<br/>"
-            "with Acoustic Harvest, Ultrasonic Membrane Assist,<br/>"
-            "and Column-Scale Multi-Physics Energy Accounting",
-            self.st["title"],
-        ))
+        self.sp(0.45)
+        self.story.append(Paragraph(TITLE_SHORT, self.st["title"]))
+        self.sp(0.12)
+        self.story.append(Paragraph(SUBTITLE_LONG, self.st["subtitle"]))
+        self.sp(0.18)
         self.p("<b>Joseph Black</b>", "author")
         self.p("CHORUS Research Program · <i>differential-harness</i>", "affil")
-        self.p("Full technical report · Draft v3 · June 2026", "affil")
+        self.p("Full technical report · Draft v4 · June 2026", "affil")
         self.sp(0.2)
         self.h1("Abstract")
         self.paras(abstract_paragraphs(self.ctx))
@@ -257,6 +284,7 @@ class PaperBuilder:
             "  3.6 Layer F — PRO on anthropogenic brine (SGH-1)",
             "4 CHORUS-Skid system architecture",
             "  4.1 AEH acoustic layer (Modes A and B)",
+            "7A OpenSCAD mechanical digital twin",
             "5 Numerical methods",
             "6 Results and numerical experiments",
             "7 Hardware realization",
@@ -410,7 +438,13 @@ class PaperBuilder:
             ["E5", "Ultrasonic g", "7", "Mode B net gain"],
             ["E6", "SPL", "21", "Mode A harvest"],
             ["E7", "Column MC", "8000", "Layer medians"],
-        ], [0.6 * inch, 1.5 * inch, 0.8 * inch, 3.3 * inch], "Numerical experiment matrix.")
+            ["E8", "c_river RED", "31", "P''_max vs salinity"],
+            ["E9", "Temperature", "5", "Δπ(T), P(T)"],
+            ["E10", "η_mem", "11", "Sensitivity"],
+            ["E11", "Slip b", "6", "Nanopore G(b)"],
+            ["E12", "Net energy", "4", "Parasitics + PX"],
+            ["E13", "TSC I sweep", "21", "ψ, P_diss"],
+        ], [0.55 * inch, 1.35 * inch, 0.75 * inch, 3.55 * inch], "Numerical experiment matrix.")
 
     def _results_full(self) -> None:
         self.h1("6. Results and numerical experiments")
@@ -487,6 +521,22 @@ class PaperBuilder:
              f"{spl[len(spl)//2]['power_mW']:.3f}"],
             [f"{spl[-1]['spl_db']:.0f}", f"{spl[-1]['intensity_W_m2']:.2e}", f"{spl[-1]['power_mW']:.3f}"],
         ], caption="Selected SPL harvest points (A=0.5 m², η=2%).")
+        self.h2("6.10 Experiment E8 — RED river salinity")
+        self.figure("fig08_red_river_sweep.png", "Estuary RED P''_max versus c_river.")
+        self.h2("6.11 Experiment E9 — Temperature")
+        self.figure("fig09_temperature.png", "PRO power versus temperature.")
+        self.h2("6.12 Experiment E12 — Net skid energy")
+        self.figure("fig10_net_energy.png", "Net power scenarios with pump and PX model.")
+        ne_rows = [["Scenario", "P_pro", "P_pump", "P_px", "P_net"]]
+        for r in self.exp["sweeps"]["net_energy"]:
+            ne_rows.append([
+                r["scenario"], f"{r['P_pro_W']:.2f}", f"{r['P_pump_W']:.2f}",
+                f"{r['P_px_W']:.2f}", f"{r['P_net_W']:.2f}",
+            ])
+        self.table(ne_rows, [1.2 * inch, 1.0 * inch, 1.0 * inch, 1.0 * inch, 1.2 * inch],
+                   "Skid net energy balance (simulation/parasitics.py).")
+        self.h2("6.13 Experiment E13 — TSC injection sweep")
+        self.figure("fig11_tsc_injection.png", "TSC dissipated power vs soil injection current.")
 
     def _hardware_full(self) -> None:
         self.h1("7. Hardware realization")
@@ -504,6 +554,28 @@ class PaperBuilder:
             ["CHOR-01", "skid_enclosure", "Plenum"],
             ["STR-01", "skid_frame", "Structure"],
         ], [0.7 * inch, 2.0 * inch, 3.5 * inch], "Representative CAD index (23 parts total).")
+
+    def _openscad_deep_dive(self) -> None:
+        self.h1("7A. OpenSCAD mechanical digital twin")
+        self.paras(openscad_paragraphs(self.ctx))
+        gc = self.openscad.get("generated_constants", {})
+        if gc:
+            self.table([
+                ["CAD parameter", "Value"],
+                ["housing_od", f"{gc.get('housing_od', 0):.0f} mm"],
+                ["stack_length", f"{gc.get('stack_length_mm', 0):.0f} mm"],
+                ["frame_L×W×H", f"{gc.get('frame_L', 0):.0f}×{gc.get('frame_W', 0):.0f}×{gc.get('frame_H', 0):.0f} mm"],
+                ["bolt_circle", f"{gc.get('bolt_circle', 0):.0f} mm"],
+                ["delta_P_bar", f"{gc.get('delta_P_bar', 0):.1f} bar"],
+            ], caption="Generated constants driving all PRO parts.")
+        parts = self.openscad.get("parts", [])[:12]
+        if parts:
+            rows = [["Part file", "Modules", "Sized from JSON"]]
+            for p in parts:
+                mods = ", ".join(p.get("modules", [])[:2]) or "—"
+                rows.append([p["file"], mods, "yes" if p.get("uses_generated_constants") else "no"])
+            self.table(rows, [2.2 * inch, 2.5 * inch, 1.5 * inch],
+                       "OpenSCAD audit (12 of 23 parts; full list in openscad_audit.json).")
 
     def _testing(self) -> None:
         self.h1("8. Bench and field test protocol")
@@ -560,12 +632,27 @@ class PaperBuilder:
             ["R_int", f"{r['R_int_ohm_m2']:.3f} Ω·m²"],
             ["P_mix ceiling", f"{e['P_mix_ceiling_MW']:.0f} MW"],
         ], caption="From chorus_results.json.")
-        self.h1("Appendix B — E1 pressure-ratio sweep (sample)")
-        rows = [["ΔP/Δπ", "P (W)", "Q (L/min)"]]
+        self.h1("Appendix B — E1 pressure-ratio sweep (complete, 41 points)")
+        rows = [["ΔP/Δπ", "ΔP MPa", "P (W)", "P'' (W/m²)", "Q (L/min)"]]
         sweep = [x for x in self.exp["sweeps"]["delta_P_ratio"] if "ratio" in x]
-        for pt in sweep[::4]:
-            rows.append([f"{pt['ratio']:.2f}", f"{pt['P_W']:.2f}", f"{pt['m_dot_L_min']:.3f}"])
-        self.table(rows, [2.0 * inch, 2.0 * inch, 2.2 * inch], "Every fourth point of 41-point sweep.")
+        for pt in sweep:
+            rows.append([
+                f"{pt['ratio']:.3f}", f"{pt['delta_P_MPa']:.3f}",
+                f"{pt['P_W']:.3f}", f"{pt['P_W_m2']:.3f}", f"{pt['m_dot_L_min']:.3f}",
+            ])
+        self.table(rows, [0.9 * inch, 1.0 * inch, 0.9 * inch, 1.1 * inch, 1.0 * inch],
+                   "Full Kim–Baker sweep (experiment E1).")
+        self.h1("Appendix B2 — SymPy symbolic verification")
+        self.paras(sympy_paragraphs(self.ctx))
+        sym = self.exp.get("symbolic_checks", {})
+        if sym.get("available"):
+            self.eq(
+                sym.get("latex_delta_pi", "Δπ = iRT(c_h - c_l)")[:80],
+                f"Numeric Δπ = {sym.get('delta_pi_MPa_brine_pair', 0):.4f} MPa",
+                f"Kim–Baker critical: {sym.get('kim_baker_at_half_delta_pi', 'dpi/2')}",
+            )
+        self.h1("Appendix B3 — Draft patent claims")
+        self.paras(patent_draft_paragraphs(self.ctx))
         self.h1("Appendix C — E2 L_p sweep (full)")
         rows = [["L_p×10⁻¹²", "P (W)", "P''", "≥10W"]]
         for r in self.exp["sweeps"]["L_p"]:
@@ -578,7 +665,19 @@ class PaperBuilder:
             rows.append([f"{r['flux_gain']:.2f}", f"{r['P_base_W']:.2f}",
                          f"{r.get('P_us_W', r.get('P_us_input_W', 0)):.2f}", f"{r['P_net_gain_W']:.3f}"])
         self.table(rows, [1.5 * inch] * 4)
-        self.h1("Appendix E — CAD file list")
+        self.h1("Appendix E — Bill of materials (excerpt)")
+        if self.bom:
+            rows = [["ID", "Name", "Qty", "Material"]]
+            for row in self.bom[:20]:
+                rows.append([
+                    row.get("part_id", ""),
+                    (row.get("name", "") or "")[:28],
+                    row.get("qty", ""),
+                    (row.get("material", "") or "")[:18],
+                ])
+            self.table(rows, [0.7 * inch, 2.5 * inch, 0.6 * inch, 1.4 * inch],
+                       "SGH1_BOM.csv (first 20 lines; full BOM in repository).")
+        self.h1("Appendix F — CAD file list (complete)")
         parts = [
             "sgh1_assembly.scad", "sgh1_exploded_assembly.scad", "sgh1_membrane_housing.scad",
             "sgh1_membrane_plate.scad", "sgh1_manifold_feed.scad", "sgh1_manifold_draw.scad",
@@ -587,10 +686,12 @@ class PaperBuilder:
         ]
         for part in parts:
             self.p(f"• hardware/openscad/{part}")
-        self.h1("Appendix F — Reproducibility commands")
+        self.h1("Appendix G — Reproducibility commands")
         cmds = [
             "python -m simulation.experiments",
             "python -m simulation.pi_groups",
+            "python -m simulation.symbolic_checks",
+            "python scripts/audit_openscad.py",
             "python simulation/run_sizing.py --power 10 --density 8",
             "python scripts/generate_paper_figures.py",
             "python scripts/build_research_paper.py",
@@ -635,7 +736,7 @@ class PaperBuilder:
             canvas.saveState()
             canvas.setFont("Helvetica", 8)
             canvas.drawString(0.85 * inch, 0.42 * inch,
-                              "Black (2026) · CHORUS-SGH-1 Full Technical Report · differential-harness")
+                              "Black (2026) · CHORUS-SGH-1 · differential-harness")
             canvas.drawRightString(7.65 * inch, 0.42 * inch, f"Page {doc.page}")
             canvas.restoreState()
 
