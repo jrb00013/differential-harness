@@ -1,0 +1,31 @@
+{
+  "title": "CHORUS Physics Proof",
+  "generated_at": "2026-06-01T05:41:40.929415+00:00",
+  "constants": {
+    "T_K": 298.15,
+    "C_sea": 600.0,
+    "C_river": 20.0,
+    "n_pairs": 50
+  },
+  "results": {
+    "E_N_mV": 87.38553283478494,
+    "V_stack_V": 4.369276641739247,
+    "delta_pi_MPa": 2.87559015433877,
+    "P_mix_max_MW": 1437.795077169385,
+    "P_blue_W_m2": 15.0,
+    "R_int_ohm_m2": 0.3181763062008032,
+    "P_pv_W_m2": 187.90754624152774,
+    "P_pv_gain_W_m2": 5.621546241527739,
+    "P_mfc_uW_m2": 36.74903137795773,
+    "P_glob_GW": 0.6,
+    "column_MW_median": 22.758638714734108,
+    "column_MW_p10": 19.625723332027405,
+    "column_MW_p90": 26.464372583645808
+  },
+  "claims": {
+    "safest": "Blue energy (RED) at estuaries",
+    "smartest": "PV + hydrovoltaic evaporative coupling",
+    "strangest": "Telluric Storm Coupling conductance network",
+    "civilization": "Full CHORUS column on coastal km\u00b2"
+  }
+}

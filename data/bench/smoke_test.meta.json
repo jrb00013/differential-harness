@@ -1,0 +1,5 @@
+{
+  "file": "data/bench/smoke_test.csv",
+  "duration_s": 2.0,
+  "interval_s": 1.0
+}

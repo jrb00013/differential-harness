@@ -1,0 +1,30 @@
+{
+  "title": "CHORUS-Skid SGH-1 Design Export",
+  "sizing": {
+    "P_target_W": 10.0,
+    "P_density_W_m2": 8.0,
+    "A_mem_m2": 0.72,
+    "active_width_mm": 200.0,
+    "active_height_mm": 300.0,
+    "n_plates": 12,
+    "plate_area_mm2": 60000.0,
+    "delta_pi_MPa": 6.916290112463193,
+    "delta_P_star_MPa": 3.4581450562315963,
+    "delta_P_star_bar": 34.581450562315965,
+    "housing_od_mm": 280.0,
+    "housing_length_mm": 264,
+    "bolt_pattern_mm": 240.0,
+    "frame_length_mm": 664,
+    "frame_width_mm": 480.0,
+    "frame_height_mm": 900,
+    "Q_feed_L_min": 0.14939186642920496,
+    "c_draw": 1400.0,
+    "c_feed": 5.0
+  },
+  "claims": {
+    "safest": "PRO salinity-gradient core",
+    "smartest": "Ultrasonic CP gain + PRO",
+    "strangest": "TSC + AEH urban panel",
+    "civilization": "Co-located desal brine + effluent + CHORUS skid"
+  }
+}
