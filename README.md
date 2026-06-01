@@ -8,7 +8,9 @@
 
 ```bash
 pip install -e ".[paper]"
-python scripts/build_research_paper.py
+python -m simulation.experiments      # exports/paper_experiments.json
+python scripts/generate_paper_figures.py  # exports/figures/*.png
+python scripts/build_research_paper.py  # papers/Black_2026_CHORUS_SGH1_PoC.pdf (~20+ pages with figures)
 ```
 
 Math supplements: [docs/math/](docs/math/)
