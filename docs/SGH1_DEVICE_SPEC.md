@@ -50,3 +50,15 @@ US transducer: feed manifold (CP enhancement, optional).
 
 - RED nanopore cartridge, same bolt pattern
 - Full moist-electric panel on CHOR plenum
+
+## 8. v3 — UDT / AOR / VOH (vision)
+
+See [VISION.md](VISION.md).
+
+| Module | Hardware target |
+|--------|-----------------|
+| UDT | `chorus_aeh_panel`, `sgh1_us_mount_ring`, planned `sgh1_tink_ring` |
+| AOR | Resonant enclosure + draw ram leg (`sgh1_z_pipe` planned) |
+| VOH | Spinning membrane drum + axial z-leg; `sgh1_vortex_basin` planned |
+
+Validation: T1b (UDT), T1c (VOH) per [SGH1_TEST_PROTOCOL.md](SGH1_TEST_PROTOCOL.md).

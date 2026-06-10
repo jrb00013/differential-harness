@@ -2,6 +2,32 @@
 
 **CHORUS-Skid SGH-1 + AEH-1** — full hardware blueprint: **23 OpenSCAD parts**, simulation, DAQ, BOM, test protocol, patent playbook.
 
+## Vision — osmotic-vortex hydro (VOH)
+
+**Master index:** [docs/VISION.md](docs/VISION.md)
+
+| Layer | Doc | Sim |
+|-------|-----|-----|
+| **UDT** — Universal Differential Tink (rays, particle bytes) | [UDT_PHYSICS.md](docs/UDT_PHYSICS.md) | `differential_tink.py` |
+| **AOR** — Acoustic-Osmotic Ram (sound + brine + ram pipe) | [AOR_PHYSICS.md](docs/AOR_PHYSICS.md) | `acoustic_osmotic_ram.py` |
+| **VOH** — Vortex-Osmotic Hydro / Z-Hydro (spin + z-leg) | [VOH_PHYSICS.md](docs/VOH_PHYSICS.md) | `vortex_osmotic_hydro.py` |
+
+```bash
+python -m simulation.experiments   # exports vision_stack (E14–E16) in paper_experiments.json
+```
+
+## Bench validation (T0–T1)
+
+```bash
+pip install -e ".[dev]"
+python -m daq.logger --test T1 --duration 3600          # 1 h CSV → data/bench/
+python -m simulation.bench_validation --csv data/bench/T1_*.csv
+python scripts/run_test_protocol.py --test T1           # full protocol + auto validation
+pytest tests/
+```
+
+Notebooks: `notebooks/T1_bench_validation.ipynb`, `notebooks/VOH_spin_breakeven.ipynb`
+
 ## Research paper (PoC)
 
 **Joseph Black** — *CHORUS-SGH-1: Brine-Gradient Power on a Bench Skid* ([PDF](papers/Black_2026_CHORUS_SGH1_PoC.pdf) · ~34 pages · [source](papers/black_2026_chorus_sgh1_poc.md))
@@ -42,7 +68,8 @@ Requires [OpenSCAD](https://openscad.org/) for STL export: `sudo apt install ope
 | **STL exports** | 23 | [hardware/stl/](hardware/stl/) after export |
 | **Docs** | 12+ | [docs/](docs/), [hardware/BUILD_BLUEPRINT.md](hardware/BUILD_BLUEPRINT.md) |
 | **BOM lines** | 35+ | [hardware/bom/SGH1_BOM.csv](hardware/bom/SGH1_BOM.csv) |
-| **Python sim** | 6 modules | [simulation/](simulation/) |
+| **Python sim** | 9+ modules | [simulation/](simulation/) |
+| **Vision docs** | 4 | [docs/VISION.md](docs/VISION.md) |
 | **DAQ** | 3 scripts | [daq/](daq/) |
 | **Notebooks** | 2 | [notebooks/](notebooks/) |
 

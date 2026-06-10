@@ -16,10 +16,11 @@ dependencies = [
 
 [project.optional-dependencies]
 paper = ["reportlab>=4.0"]
+dev = ["pytest>=8.0"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["simulation*"]
+include = ["simulation*", "daq*"]
 
 [project.scripts]
 sgh1-size = "simulation.run_sizing:main"

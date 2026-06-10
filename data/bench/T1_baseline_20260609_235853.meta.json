@@ -1,0 +1,9 @@
+{
+  "file": "/home/josep/projects/differential-harness/data/bench/T1_baseline_20260609_235853.csv",
+  "duration_s": 30.0,
+  "interval_s": 1.0,
+  "test_id": "T1",
+  "phase": "baseline",
+  "us_on": false,
+  "omega_rpm": 0.0
+}

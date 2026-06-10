@@ -65,7 +65,19 @@ Design hydraulic pressure on draw side: **ΔP* ≈ Δπ/2** (see `exports/sgh1_s
 3. Positive hydraulic power on draw circuit OR positive electrical from turbine.
 4. Log CSV 1 h; compare `P_density` to simulation ±30%.
 
-## 7. File index (OpenSCAD)
+## 7. Vision hardware (v3 — planned)
+
+See [docs/VISION.md](../docs/VISION.md).
+
+| Part | Purpose |
+|------|---------|
+| `sgh1_tink_ring.scad` | Toroidal UDT ray / US mounts |
+| `sgh1_z_pipe.scad` | Axial hyperspeed draw leg (Z-Hydro) |
+| `sgh1_vortex_basin.scad` | Taylor–Couette / halocline cell |
+
+Bench order after SGH-1 T1: T1b (UDT/AOR) → T1c (spinning drum).
+
+## 8. File index (OpenSCAD)
 
 ```
 hardware/openscad/

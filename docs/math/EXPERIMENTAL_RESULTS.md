@@ -22,8 +22,13 @@ python scripts/build_research_paper.py
 | E6 Acoustic | 96 dB → ~2.5 mW on 0.5 m² |
 | E7 Column MC | pv_hydro ~98.7% of median layer sum; blue_energy ~1.1% |
 | E8–E13 | RED c_river, temperature, η_mem, slip b, net energy, TSC |
+| E14 | UDT η_tink sweep → flux gain, P_net | `vision_stack.E14_udt_eta_tink` |
+| E15 | AOR resonant column height vs P_net | `vision_stack.E15_aor_column_height` |
+| E16 | VOH ω sweep; flat vs spin compare | `vision_stack.E16_voh_omega` |
 
 Also: `symbolic_checks.json`, `openscad_audit.json`.
+
+Vision physics: [../VISION.md](../VISION.md) · [../UDT_PHYSICS.md](../UDT_PHYSICS.md) · [../AOR_PHYSICS.md](../AOR_PHYSICS.md) · [../VOH_PHYSICS.md](../VOH_PHYSICS.md)
 
 ## Figures
 

@@ -25,3 +25,19 @@
 1. SPL meter at panel face; verify 80+ dB environment optional.
 2. Measure harvest Voc into 1 MΩ load.
 3. US on: compare flux / power vs off (Mode B).
+
+## T1b — UDT / AOR (vision)
+
+1. Same ΔP as T1; log 1 Hz minimum 60 min.
+2. Run A: US off, incoherent driver off.
+3. Run B: UDT phased rays on (see [UDT_PHYSICS.md](UDT_PHYSICS.md)).
+4. Run C: full AOR — resonant column tuned to `f ≈ c/(4H)`.
+5. Pass: `P_net(C) > P_net(B) > P_net(A)` OR document fouling-limited crossover.
+
+## T1c — VOH / Z-Hydro (vision)
+
+1. Compare flat stack (ω = 0) vs spinning drum at fixed ω (RPM logged).
+2. Measure `P_spin_motor` separately.
+3. Pass: `P_net(ω) > P_net(0)` after subtracting spin parasitic, same brine pair.
+
+Vision index: [VISION.md](VISION.md)

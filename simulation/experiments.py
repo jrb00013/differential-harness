@@ -29,7 +29,10 @@ from simulation.pro_cycle import steady_state_pro
 from simulation.parasitics import skid_energy_balance
 from simulation.symbolic_checks import run_symbolic_checks
 from simulation.tsc_network import solve_tsc, sweep_injection_current
+from simulation.acoustic_osmotic_ram import aor_state, sweep_column_height
+from simulation.differential_tink import sweep_eta_tink
 from simulation.ultrasonic_cp_gain import net_power_with_ultrasound
+from simulation.vortex_osmotic_hydro import breakeven_omega, compare_flat_vs_voh, sweep_omega
 
 ROOT = Path(__file__).resolve().parent.parent
 EXPORTS = ROOT / "exports"
@@ -305,6 +308,25 @@ def gibbs_mixing_ceiling_MW(c_sea: float, c_river: float, Q_m3_s: float = 500.0)
     return dpi * Q_m3_s / 1e6
 
 
+def vision_stack_experiments() -> dict:
+    """E14–E16: UDT, AOR, VOH vision stack (docs/VISION.md)."""
+    aor = aor_state()
+    return {
+        "E14_udt_eta_tink": sweep_eta_tink(),
+        "E15_aor_column_height": sweep_column_height(),
+        "E16_voh_omega": sweep_omega(),
+        "E16_flat_vs_voh": compare_flat_vs_voh(),
+        "E16_breakeven_omega": breakeven_omega(),
+        "summary": {
+            "lambda_e90_m": 1500.0 / 28000.0,
+            "N_rays_design": 64534,
+            "aor_P_net_W": aor.P_net_W,
+            "aor_flux_gain": aor.flux_gain_udt,
+            "aor_f_res_Hz": aor.resonant.f_us_Hz,
+        },
+    }
+
+
 def run_all() -> dict:
     A = 0.72
     st = steady_state_pro(C_BRINE_8PCT, C_TREATED_WW, A)
@@ -353,6 +375,7 @@ def run_all() -> dict:
             "injection_sweep": sweep_injection_current(),
         },
         "symbolic_checks": run_symbolic_checks(),
+        "vision_stack": vision_stack_experiments(),
     }
 
 

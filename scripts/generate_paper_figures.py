@@ -257,6 +257,67 @@ def fig_design_vs_literature(data: dict) -> Path:
     return out
 
 
+def fig_udt_eta_tink(data: dict) -> Path:
+    vs = data.get("vision_stack", {})
+    sweep = vs.get("E14_udt_eta_tink", [])
+    x = [p["eta_tink"] for p in sweep]
+    y = [p["P_net_gain_W"] for p in sweep]
+    fig, ax = plt.subplots(figsize=(6, 3.5))
+    ax.plot(x, y, "o-", color="#805ad5", lw=2)
+    ax.axhline(0, color="gray", lw=0.8)
+    ax.set_xlabel("η_tink (Tink coupling)")
+    ax.set_ylabel("UDT net PRO gain (W)")
+    ax.set_title("E14: UDT η_tink vs net power gain")
+    ax.grid(True, alpha=0.3)
+    out = FIGURES / "fig14_udt_eta_tink.png"
+    fig.tight_layout()
+    fig.savefig(out, dpi=200)
+    plt.close(fig)
+    return out
+
+
+def fig_aor_column(data: dict) -> Path:
+    vs = data.get("vision_stack", {})
+    sweep = vs.get("E15_aor_column_height", [])
+    x = [p["height_m"] for p in sweep]
+    y = [p["P_net_W"] for p in sweep]
+    fig, ax = plt.subplots(figsize=(6, 3.5))
+    ax.plot(x, y, "s-", color="#dd6b20", lw=2)
+    ax.set_xlabel("Resonant column height H (m)")
+    ax.set_ylabel("P_net (W)")
+    ax.set_title("E15: AOR column height vs net power")
+    ax.grid(True, alpha=0.3)
+    out = FIGURES / "fig15_aor_column.png"
+    fig.tight_layout()
+    fig.savefig(out, dpi=200)
+    plt.close(fig)
+    return out
+
+
+def fig_voh_omega(data: dict) -> Path:
+    vs = data.get("vision_stack", {})
+    sweep = vs.get("E16_voh_omega", [])
+    rpm = [p["rpm"] for p in sweep]
+    y = [p["P_net_W"] for p in sweep]
+    flat = vs.get("E16_flat_vs_voh", {}).get("flat_P_net_W", y[0] if y else 0)
+    fig, ax = plt.subplots(figsize=(6, 3.5))
+    ax.plot(rpm, y, "o-", color="#2b6cb0", lw=2, label="VOH P_net(ω)")
+    ax.axhline(flat, color="crimson", ls="--", label=f"Flat baseline ({flat:.2f} W)")
+    be = vs.get("E16_breakeven_omega")
+    if be:
+        ax.axvline(be["rpm"], color="green", ls=":", label=f"Breakeven {be['rpm']:.0f} RPM")
+    ax.set_xlabel("Spin rate (RPM)")
+    ax.set_ylabel("P_net (W)")
+    ax.set_title("E16: VOH spin vs no-spin — Z-Hydro")
+    ax.legend(fontsize=8)
+    ax.grid(True, alpha=0.3)
+    out = FIGURES / "fig16_voh_omega.png"
+    fig.tight_layout()
+    fig.savefig(out, dpi=200)
+    plt.close(fig)
+    return out
+
+
 def main():
     FIGURES.mkdir(parents=True, exist_ok=True)
     data = _load()
@@ -275,6 +336,12 @@ def main():
         fig_brine_pairs(data),
         fig_design_vs_literature(data),
     ]
+    if "vision_stack" in data:
+        paths.extend([
+            fig_udt_eta_tink(data),
+            fig_aor_column(data),
+            fig_voh_omega(data),
+        ])
     for p in paths:
         print(p)
 

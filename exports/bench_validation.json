@@ -1,0 +1,17 @@
+{
+  "csv_path": "data/bench/T1_baseline_20260609_235853.csv",
+  "n_rows": 30,
+  "duration_s": 29.006255475000216,
+  "A_mem_m2": 0.72,
+  "delta_pi_MPa_measured": 6.662626334210911,
+  "delta_P_MPa_measured": 3.3244942661073824,
+  "P_density_measured_W_m2": 2.503551994521366,
+  "P_density_predicted_W_m2": 2.2154795473962947,
+  "P_net_mean_W": 0.3525574360553836,
+  "P_net_steady_W": 0.3534528910452298,
+  "L_p_fit_m_Pa_s": 1.0370696103462478e-12,
+  "relative_error_pct": 13.002713000154916,
+  "pass_t1": true,
+  "pass_p_net_positive": true,
+  "pass_steady_15min": false
+}

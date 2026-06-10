@@ -167,6 +167,20 @@ Bench: `python simulation/run_sizing.py` · Π-groups: `python -m simulation.pi_
 
 ---
 
+## 10. Vision stack — UDT / AOR / VOH
+
+**Master index:** [VISION.md](VISION.md)
+
+| Layer | Physics | Key equation |
+|-------|---------|--------------|
+| **UDT** | Ray field + particle bytes → Tink kernel | $k_{m,\mathrm{eff}} = k_{m,0}(1 + \eta_{\mathrm{tink}}\bar{w})$ |
+| **AOR** | Resonant column + brine motor + ram pipe | $P_{\mathrm{net}} = P_{\mathrm{PRO}}(g) - P_{\mathrm{US}} - P_{\mathrm{pump}} + P_{\mathrm{px}}$ |
+| **VOH** | Spin + z-hydro + osmosis | $P = P_0 + \rho g z + \tfrac{1}{2}\rho\omega^2 r^2 + \Pi_{\mathrm{osm}}$ |
+
+Sim: `differential_tink.py`, `acoustic_osmotic_ram.py`, `vortex_osmotic_hydro.py` · Experiments E14–E16.
+
+---
+
 ## 7. Notebook section map
 
 | § | Content | Method |

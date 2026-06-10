@@ -1,6 +1,7 @@
 # Inventor Notebook Template
 
-**Project:** CHORUS-Skid SGH-1 + AEH-1  
+**Project:** CHORUS-Skid SGH-1 + AEH-1 + UDT / AOR / VOH  
+**Vision:** [VISION.md](VISION.md)
 **Inventor:** ___________________  
 **Witness (sign/date):** ___________________
 
@@ -23,3 +24,8 @@
 - [ ] First CAD export STL
 - [ ] First pressurized leak test
 - [ ] First positive power measurement
+- [ ] UDT documented — [UDT_PHYSICS.md](UDT_PHYSICS.md) + `differential_tink.py` run
+- [ ] AOR resonant column tuned — f_res vs column height logged
+- [ ] T1b: US/UDT on vs off — `P_net` gain CSV
+- [ ] T1c: VOH spin vs flat — `P_net` vs ω CSV
+- [ ] First field sidestream T2 contact (utility/lab NDA)

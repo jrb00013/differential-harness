@@ -27,3 +27,22 @@ PERTH_DESAL_KWH_PER_M3 = 3.5
 
 ETA_MEM_DEFAULT = 0.35
 ETA_HYD_DEFAULT = 0.55
+
+# UDT / AOR / VOH vision stack (docs/UDT_PHYSICS.md, docs/VOH_PHYSICS.md)
+C_SOUND_WATER = 1500.0  # m/s
+F_US_DEFAULT = 28_000.0  # Hz — e90 ultrasonic carrier
+LAMBDA_E90_REF_M = 1.0  # normalization for byte_len scaling
+N_RAYS_DEFAULT = 64534  # design-point ray mesh; bench uses fewer transducers
+ETA_TINK_DEFAULT = 0.15  # Tink coupling efficiency — calibrate T1b
+E0_JOULES = 1e-6  # particle-byte energy quantum
+TAU_SPIN_DEFAULT_NM = 0.012  # bench motor torque — calibrate T1c
+RPM_TO_RAD_S = 2 * 3.141592653589793 / 60.0
+
+
+def tau_spin_from_rpm(rpm: float, tau_at_100rpm_Nm: float = TAU_SPIN_DEFAULT_NM * (100.0 / 60.0)) -> float:
+    """Map bench RPM to motor torque (linear placeholder until T1c fit)."""
+    return tau_at_100rpm_Nm * (rpm / 100.0)
+
+
+def rpm_from_omega(omega_rad_s: float) -> float:
+    return omega_rad_s * 60.0 / (2 * 3.141592653589793)
