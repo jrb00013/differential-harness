@@ -1,4 +1,4 @@
-"""Extended prose sections for Joseph Black CHORUS-SGH-1 research paper."""
+"""Extended prose sections for Black & White CHORUS-SGH-1 research paper."""
 
 from __future__ import annotations
 
@@ -29,7 +29,9 @@ def introduction_paragraphs(ctx: dict) -> list[str]:
         f"At T = 298.15 K this pair yields Δπ = {b['delta_pi_MPa']:.2f} MPa—"
         f"{b['delta_pi_MPa']/e['estuary_RED']['delta_pi_MPa']:.1f}× the classic estuary RED reference. "
         "SGH-1 is accompanied by 23 OpenSCAD mechanical parts, a six-module Python simulation stack, "
-        "DAQ logging, and test protocols T0–T2.",
+        "DAQ logging, and test protocols T0–T2. The <b>vision stack</b> (UDT / AOR / VOH) extends the bench "
+        "path toward osmotic-vortex hydro at desal outfalls—documented in docs/VISION.md and simulated in "
+        "differential_tink.py, acoustic_osmotic_ram.py, and vortex_osmotic_hydro.py.",
         "This paper is deliberately tiered. <b>Tier 1 (defensible)</b> includes Van't Hoff osmotic thermodynamics, "
         "Kim–Baker optimal hydraulic pressure, solution-diffusion water transport, concentration polarization "
         "film theory, and bench-sized PRO geometry. <b>Tier 2 (exploratory)</b> includes Telluric Storm Coupling "
@@ -210,6 +212,12 @@ def test_protocol_paragraphs(ctx: dict) -> list[str]:
         "This directly tests L_p calibration and CP losses.",
         "<b>T2 — Field sidestream:</b> Utility NDA; tie-in to real brine and effluent; replicate logging.",
         "<b>AEH tests:</b> SPL meter at panel; Voc into 1 MΩ; US on/off comparison for Mode B flux gain.",
+        "<b>T1b — UDT/AOR:</b> Runs A (US off), B (phased UDT), C (full AOR resonant column); pass if "
+        "P_net(C) > P_net(B) > P_net(A) over 60 min at fixed ΔP.",
+        "<b>T1c — VOH/Z-Hydro:</b> Flat (ω=0) vs spinning drum; log P_spin_motor separately; pass if "
+        "P_net(ω) > P_net(0) after spin parasitic subtraction.",
+        "Automated validation: simulation/bench_validation.py applies ±30% T1 gate on exported CSV; "
+        "scripts/run_test_protocol.py orchestrates full protocol runs.",
     ]
 
 
@@ -281,7 +289,10 @@ def notebook_walkthrough_paragraphs(ctx: dict) -> list[str]:
         "RED slip conductance sweep (NumPy); MEG flux (NumPy); PV thermal ODE (SciPy solve_ivp); "
         "Butler–Volmer SMFC; global circuit; TSC Kirchhoff; column Monte Carlo with boxplots.",
         "The final cell exports chorus_results.json consumed by this paper and pdf-genesis. "
-        "notebooks/SGH1_PRO_simulation.ipynb repeats PRO sizing with AEH sweeps for hardware teams.",
+        "notebooks/SGH1_PRO_simulation.ipynb repeats PRO sizing with AEH and vision-stack sweeps. "
+        "notebooks/T1_bench_validation.ipynb ingests bench CSV and runs ±30% T1 gate. "
+        "notebooks/VOH_spin_breakeven.ipynb produces the spin-vs-flat milestone graph. "
+        "notebooks/CHORUS_vision_physics.ipynb derives UDT/AOR/VOH equations with inline NumPy.",
         "Re-running notebooks after parameter changes is mandatory for publication integrity—"
         "JSON exports are the single source of truth for tables in Section 6 and Appendix A.",
     ]
@@ -302,7 +313,8 @@ def safety_paragraphs(ctx: dict) -> list[str]:
 def parasitic_balance_paragraphs(ctx: dict) -> list[str]:
     b = ctx["base"]
     return [
-        "Complete skid net power P_net = P_PRO + P_AEH + P_US,net − P_pump − P_aux is not yet closed in code. "
+        "Complete skid net power P_net = P_PRO + P_AEH + P_US,net − P_pump − P_aux + P_PX is implemented in "
+        "simulation/parasitics.py and bench_validation.py. "
         f"Feed pump power scales roughly with Q × ΔP_pump / η_pump. At Q = {b['Q_L_min']:.2f} L/min and "
         "ΔP_pump ~ 1–3 bar for pretreatment, parasitics may be comparable to modeled PRO output until "
         "PX recovery is included—PRO-07 px_module is the designed mitigation path.",
@@ -316,12 +328,79 @@ def parasitic_balance_paragraphs(ctx: dict) -> list[str]:
 
 def future_work_paragraphs(ctx: dict) -> list[str]:
     return [
-        "Integrate pump parasitics and PX efficiency into simulation/parasitics.py for net skid energy balance.",
+        "Physical T0/T1 on assembled stack; publish bench CSV with inverse L_p fit (inverse_fit.py).",
+        "T1b/T1c vision validation: UDT phased rays and VOH spin breakeven on real brine.",
+        "CAD v3: sgh1_tink_ring, sgh1_z_pipe, sgh1_vortex_basin for toroidal loop and z-leg harvest.",
+        "Field T2 at co-located desal + WWTP under utility NDA.",
         "Couple salt permeability B to draw dilution over time (transient PRO).",
-        "Field T2 at co-located desal + WWTP; publish bench CSV alongside model.",
-        "Validate TSC conductances with soil–water–atmosphere potential monitoring.",
-        "v2 RED cartridge swap experiments on shared bolt pattern.",
-        "Publish peer-reviewed version with verified DOIs for calibration anchors.",
+        "Fleet-scale modeling: N modules at global brine outfall discharge (~142×10⁶ m³/day).",
+        "Peer-reviewed submission with verified DOIs; Connor White co-authorship on vision experiments.",
+    ]
+
+
+def udt_paragraphs(ctx: dict) -> list[str]:
+    vs = ctx.get("exp", {}).get("vision_stack", {})
+    summary = vs.get("summary", {})
+    return [
+        "<b>UDT (Universal Differential Tink)</b> is the control and actuation layer on toroidal membrane "
+        "loops along a differential feed spine. A discrete <b>ray field</b> (design N_r = 64534; bench 64 "
+        "transducers) delivers actuation intensity I_k at e90 wavelength λ ≈ c/f_US ≈ 5.4 cm for 28 kHz ultrasound.",
+        "<b>Particle bytes</b> encode geometry-scaled actuation packets: byte length ∝ (A_loop / L_line) × (λ_e90 / λ₀). "
+        "The Tink kernel maps ray bytes and phases to effective mass-transfer k_m,eff, reducing concentration "
+        "polarization and raising sustainable flux gain g_UDT.",
+        f"Experiment E14 sweeps η_tink coupling. At default η_tink, AOR-integrated summary reports "
+        f"flux_gain ≈ {summary.get('aor_flux_gain', 1.0):.2f} and f_res ≈ {summary.get('aor_f_res_Hz', 0):.0f} Hz. "
+        "Bench falsification: T1b compares US off vs phased on at fixed ΔP.",
+        "See docs/UDT_PHYSICS.md and simulation/differential_tink.py.",
+    ]
+
+
+def aor_paragraphs(ctx: dict) -> list[str]:
+    vs = ctx.get("exp", {}).get("vision_stack", {})
+    e15 = vs.get("E15_aor_column_height", [])
+    best = max(e15, key=lambda x: x.get("P_net_W", 0)) if e15 else {}
+    return [
+        "<b>AOR (Acoustic-Osmotic Ram)</b> stacks three natural amplifiers: (1) resonant feed column (Q-factor) "
+        "strips the CP boundary layer via acoustic streaming; (2) brine osmotic motor (Δπ MPa-class) propels "
+        "permeate against hydraulic back-pressure; (3) hyperspeed converging draw leg multiplies momentum "
+        "for pressure recovery via PX/turbine path.",
+        "Tagline: <i>Sound strips. Brine propels. Pipe amplifies.</i> Sound dilutes the polarization skin, "
+        "not bulk brine salinity—the resource is preserved while fouling resistance improves.",
+        f"E15 sweeps resonant column height H; illustrative peak P_net ≈ {best.get('P_net_W', 0):.2f} W at "
+        f"H = {best.get('height_m', 0):.2f} m (f_res ≈ {best.get('f_res_Hz', 0):.0f} Hz). "
+        "See docs/AOR_PHYSICS.md and simulation/acoustic_osmotic_ram.py.",
+    ]
+
+
+def voh_paragraphs(ctx: dict) -> list[str]:
+    vs = ctx.get("exp", {}).get("vision_stack", {})
+    be = vs.get("E16_breakeven_omega")
+    flat = vs.get("E16_flat_vs_voh", {})
+    be_txt = f"breakeven ω ≈ {be['rpm']:.0f} RPM" if be else "breakeven ω TBD (τ_spin calibration)"
+    return [
+        "<b>VOH (Vortex-Osmotic Hydro / Z-Hydro)</b> extends AOR with rotation and vertical pressurized flux. "
+        "Total pressure P(r,z) = P₀ + ρgz + ½ρω²r² + Π_osm combines classic z-hydro head, centrifugal "
+        "rim pressure, and osmotic chemical potential—opening water-electricity sites without river dams.",
+        "Taylor–Couette shear on a halocline membrane drum strips CP; Ekman pumping at the rotating "
+        "brine–fresh interface drives axial upwelling through the z-leg draw pipe.",
+        f"E16 sweeps ω; flat baseline P_net = {flat.get('flat_P_net_W', 0):.2f} W. Simulation {be_txt}. "
+        "Milestone graph: fig16_voh_omega.png (spin vs no-spin). Physical test T1c logs P_spin_motor separately.",
+        "Civilization-scale framing: fleet deployment at every desal outfall—not sun-equivalent W/m² on "
+        "acoustic panels, but GWh–TWh-class mixing entropy recovery on existing infrastructure.",
+        "See docs/VOH_PHYSICS.md and simulation/vortex_osmotic_hydro.py.",
+    ]
+
+
+def bench_validation_paragraphs(ctx: dict) -> list[str]:
+    return [
+        "The T0–T1 validation stack closes the loop between simulation and falsifiable bench data. "
+        "daq/logger.py records test_id, phase, us_on, omega_rpm, P_net_W at ≥1 Hz. "
+        "simulation/bench_validation.py inverts L_p from measured Q, ΔP, and conductivity; compares "
+        "P'' to steady_state_pro prediction with ±30% T1 tolerance.",
+        "scripts/run_test_protocol.py orchestrates T0 (leak+ramp), T1 (1 h), T1b (A/B/C), and T1c (flat/spin), "
+        "emitting bench_validation.json and bench_calibration.json per run.",
+        "pytest tests/ enforce math gates on pro_cycle, parasitics, vision_stack, and synthetic CSV validation. "
+        "Notebooks T1_bench_validation.ipynb and VOH_spin_breakeven.ipynb are the operator-facing analysis path.",
     ]
 
 
@@ -351,14 +430,18 @@ def real_world_paragraphs(ctx: dict) -> list[str]:
 
 def abstract_paragraphs(ctx: dict) -> list[str]:
     b, e, mc, p = ctx["base"], ctx["exp"]["estuary_RED"], ctx["mc"], ctx["pi"]
+    vs = ctx.get("exp", {}).get("vision_stack", {})
     return [
         f"Anthropogenic desalination reject ({b['c_draw']:.0f} mol/m³) against treated effluent ({b['c_feed']:.0f} mol/m³) "
         f"creates Δπ = {b['delta_pi_MPa']:.2f} MPa—{b['delta_pi_MPa']/e['delta_pi_MPa']:.1f}× estuary RED reference. "
-        "We present CHORUS multi-layer column accounting and CHORUS-Skid SGH-1 PRO bench hardware with AEH acoustic coupling.",
+        "We present CHORUS multi-layer column accounting, CHORUS-Skid SGH-1 PRO bench hardware, and a three-layer "
+        "<b>vision stack</b>: UDT (Universal Differential Tink), AOR (Acoustic-Osmotic Ram), and VOH "
+        "(Vortex-Osmotic Hydro / Z-Hydro) for osmotic-vortex hydro at coastal outfalls.",
         f"Kim–Baker ΔP* = {b['delta_P_star_bar']:.0f} bar. Monte Carlo column (N={mc['N']}): median {mc['column_MW_median']:.1f} MW/km². "
         f"PRO model: {b['P_default_Lp_W']:.2f} W vs {ctx['sz']['P_target_W']:.0f} W target; L_p* = {p['L_p_required_for_target']:.2e}. "
-        "Eleven figures, SymPy verification, OpenSCAD deep-dive, full E1 sweep tables, BOM and patent appendices. "
-        "Tier-1 vs tier-2 claims explicit.",
+        "Experiments E1–E16, sixteen figures, T0–T1c bench validation pipeline (bench_validation.py), "
+        "SymPy verification, OpenSCAD digital twin, and executable Jupyter notebooks. Tier-1 (PRO/AEH/UDT) "
+        "vs tier-2 (VOH fleet, column/TSC) claims are explicit.",
     ]
 
 
@@ -416,6 +499,9 @@ def patent_draft_paragraphs(ctx: dict) -> list[str]:
         "polarization while subtracting transducer parasitic load from net power accounting.",
         "(4) A Telluric Storm Coupling conductance network routing charge among atmosphere, soil, and water nodes "
         "to improve utilization of high-impedance moist-electric or microbial harvesters.",
-        "Prior art search targets: Statkraft PRO, modern RED nanopores, Air-gen moisture generators, "
-        "and desal sidestream valorization patents.",
+        "(5) UDT: geometry-scaled particle bytes on a discrete ray field controlling k_m,eff on toroidal membrane loops.",
+        "(6) AOR: resonant acoustic column coupled to brine osmotic motor and hyperspeed draw ram leg.",
+        "(7) VOH: rotating halocline cell with axial z-leg pressurized flux harvest (Z-Hydro).",
+        "Prior art search targets: Statkraft PRO, SWRO–PRO hybrids, Taylor–Couette membrane shear, "
+        "phased ultrasound CP literature, and desal sidestream valorization patents.",
     ]

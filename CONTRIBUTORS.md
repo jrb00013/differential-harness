@@ -3,6 +3,7 @@
 ## Principal lead
 
 - **Joseph Black** — CHORUS-SGH-1 architecture, simulation, CAD, research paper, program direction
+- **Connor White** — UDT/AOR/VOH vision stack, bench validation pipeline, co-author research PDF
 
 ## How credit works
 
@@ -21,4 +22,4 @@ _Add names here when people merge substantive work and sign the agreement._
 
 | Name | Areas | Since |
 |------|-------|-------|
-| | | |
+| Connor White | Vision physics, validation stack, paper co-author | 2026 |

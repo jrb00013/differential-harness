@@ -30,7 +30,7 @@ Notebooks: `notebooks/T1_bench_validation.ipynb`, `notebooks/VOH_spin_breakeven.
 
 ## Research paper (PoC)
 
-**Joseph Black** — *CHORUS-SGH-1: Brine-Gradient Power on a Bench Skid* ([PDF](papers/Black_2026_CHORUS_SGH1_PoC.pdf) · ~34 pages · [source](papers/black_2026_chorus_sgh1_poc.md))
+**Joseph Black** and **Connor White** — *CHORUS-SGH-1: Brine-Gradient Power, UDT/AOR/VOH Vision, and Osmotic-Vortex Hydro* ([PDF](papers/Black_2026_CHORUS_SGH1_PoC.pdf) · [source](papers/black_2026_chorus_sgh1_poc.md))
 
 ```bash
 pip install -e ".[paper]"

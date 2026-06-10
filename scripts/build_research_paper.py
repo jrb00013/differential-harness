@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build full-length Joseph Black CHORUS-SGH-1 research paper PDF."""
+"""Build full-length Black & White CHORUS-SGH-1 research paper PDF."""
 
 from __future__ import annotations
 
@@ -11,8 +11,8 @@ from pathlib import Path
 TITLE_SHORT = "CHORUS-SGH-1: Brine-Gradient Power on a Bench Skid"
 SUBTITLE_LONG = (
     "A Proof-of-Concept Framework for Pressure-Retarded Osmosis on Anthropogenic Brine "
-    "Gradients with Acoustic Harvest, Ultrasonic Membrane Assist, and Column-Scale "
-    "Multi-Physics Energy Accounting"
+    "Gradients with UDT/AOR/VOH Vision Stack, Acoustic-Osmotic Ram, Vortex-Osmotic Hydro, "
+    "Bench Validation Pipeline, and Column-Scale Multi-Physics Energy Accounting"
 )
 
 from reportlab.lib import colors
@@ -58,6 +58,10 @@ from papers.paper_sections import (  # noqa: E402
     tsc_column_paragraphs,
     worked_examples_paragraphs,
     real_world_paragraphs,
+    udt_paragraphs,
+    aor_paragraphs,
+    voh_paragraphs,
+    bench_validation_paragraphs,
 )
 
 EXPORTS = ROOT / "exports"
@@ -236,6 +240,8 @@ class PaperBuilder:
         self.pb()
         self._results_full()
         self.pb()
+        self._bench_validation_section()
+        self.pb()
         self._hardware_full()
         self.pb()
         self._openscad_deep_dive()
@@ -261,16 +267,16 @@ class PaperBuilder:
         self.sp(0.12)
         self.story.append(Paragraph(SUBTITLE_LONG, self.st["subtitle"]))
         self.sp(0.18)
-        self.p("<b>Joseph Black</b>", "author")
+        self.p("<b>Joseph Black</b> and <b>Connor White</b>", "author")
         self.p("CHORUS Research Program · <i>differential-harness</i>", "affil")
-        self.p("Full technical report · Draft v4 · June 2026", "affil")
+        self.p("Full technical report · Draft v5 · June 2026", "affil")
         self.sp(0.2)
         self.h1("Abstract")
         self.paras(abstract_paragraphs(self.ctx))
         self.p(
             "<b>Keywords:</b> pressure-retarded osmosis; salinity-gradient power; blue energy; "
             "reverse electrodialysis; concentration polarization; acoustic energy harvesting; "
-            "CHORUS; desalination brine; proof of concept",
+            "CHORUS; desalination brine; UDT; AOR; VOH; Z-Hydro; osmotic-vortex hydro; proof of concept",
             "abstract",
         )
         self.pb()
@@ -287,11 +293,15 @@ class PaperBuilder:
             "  3.4 Layer D — Atmospheric charge and collision cells",
             "  3.5 Telluric Storm Coupling and column balance",
             "  3.6 Layer F — PRO on anthropogenic brine (SGH-1)",
+            "  3.7 UDT — Universal Differential Tink",
+            "  3.8 AOR — Acoustic-Osmotic Ram",
+            "  3.9 VOH — Vortex-Osmotic Hydro (Z-Hydro)",
             "4 CHORUS-Skid system architecture",
             "  4.1 AEH acoustic layer (Modes A and B)",
             "7A OpenSCAD mechanical digital twin",
             "5 Numerical methods",
-            "6 Results and numerical experiments",
+            "6 Results and numerical experiments (E1–E16)",
+            "6A Bench validation pipeline (T0–T1c)",
             "7 Hardware realization",
             "8 Bench and field test protocol",
             "9 Discussion",
@@ -437,6 +447,22 @@ class PaperBuilder:
             "c_w / c_b = exp(J_w / k_m)",
             "P_net = P_PRO(g) − P_US − P_0",
         )
+        self.h2("3.7 UDT — Universal Differential Tink")
+        self.paras(udt_paragraphs(self.ctx))
+        self.eq(
+            "byte_len ∝ (A_loop / L_line)(λ_e90 / λ₀)",
+            "k_m,eff = k_m,0(1 + η_tink w̄)",
+            "c_w/c_b = exp(J_w/k_m,eff)",
+        )
+        self.h2("3.8 AOR — Acoustic-Osmotic Ram")
+        self.paras(aor_paragraphs(self.ctx))
+        self.eq("f_res ≈ c/(4H)", "P_net = P_PRO(g) − P_US − P_pump + P_PX")
+        self.h2("3.9 VOH — Vortex-Osmotic Hydro")
+        self.paras(voh_paragraphs(self.ctx))
+        self.eq(
+            "P = P₀ + ρgz + ½ρω²r² + Π_osm",
+            "P_net,VOH = P_PRO − P_spin_motor − P_parasitics",
+        )
 
     def _sgh1_system(self) -> None:
         self.h1("4. CHORUS-Skid system architecture")
@@ -463,8 +489,10 @@ class PaperBuilder:
         self.p(
             "simulation/pro_cycle.py — steady PRO state; sizing.py — area scale law and CAD caps; "
             "membrane_transport.py — CP profile; ultrasonic_cp_gain.py — Mode B; "
-            "acoustic_harvest.py — Mode A; pi_groups.py — Π₁–Π₅; experiments.py — sweeps E1–E7. "
-            "notebooks/CHORUS_physics_proof.ipynb — SymPy + SciPy proof; SGH1_PRO_simulation.ipynb — PRO/AEH."
+            "acoustic_harvest.py — Mode A; pi_groups.py — Π₁–Π₅; experiments.py — sweeps E1–E16; "
+            "differential_tink.py, acoustic_osmotic_ram.py, vortex_osmotic_hydro.py — vision stack; "
+            "bench_validation.py, inverse_fit.py — T1 gates. "
+            "notebooks/CHORUS_physics_proof.ipynb, CHORUS_vision_physics.ipynb, T1_bench_validation.ipynb."
         )
         self.h2("5.2 Constants and assumptions")
         self.table([
@@ -491,6 +519,9 @@ class PaperBuilder:
             ["E11", "Slip b", "6", "Nanopore G(b)"],
             ["E12", "Net energy", "4", "Parasitics + PX"],
             ["E13", "TSC I sweep", "21", "ψ, P_diss"],
+            ["E14", "UDT η_tink", "21", "Flux gain, P_net"],
+            ["E15", "AOR column H", "6", "Resonant height vs P_net"],
+            ["E16", "VOH ω sweep", "6", "Spin vs flat breakeven"],
         ], [0.55 * inch, 1.35 * inch, 0.75 * inch, 3.55 * inch], "Numerical experiment matrix.")
 
     def _results_full(self) -> None:
@@ -584,6 +615,31 @@ class PaperBuilder:
                    "Skid net energy balance (simulation/parasitics.py).")
         self.h2("6.13 Experiment E13 — TSC injection sweep")
         self.figure("fig11_tsc_injection.png", "TSC dissipated power vs soil injection current.")
+        vs = self.exp.get("vision_stack", {})
+        if vs:
+            self.h2("6.14 Experiment E14 — UDT η_tink sweep")
+            self.figure("fig14_udt_eta_tink.png", "UDT coupling efficiency vs net PRO gain.")
+            self.h2("6.15 Experiment E15 — AOR resonant column")
+            self.figure("fig15_aor_column.png", "Column height vs net power (Acoustic-Osmotic Ram).")
+            self.h2("6.16 Experiment E16 — VOH spin vs flat")
+            self.figure("fig16_voh_omega.png", "Z-Hydro: P_net versus spin rate with flat baseline.")
+            be = vs.get("E16_breakeven_omega")
+            if be:
+                self.p(
+                    f"Simulation breakeven spin: ω = {be['omega_rad_s']:.1f} rad/s "
+                    f"({be['rpm']:.0f} RPM), ΔP_net = {be['delta_P_net_W']:.3f} W vs flat."
+                )
+
+    def _bench_validation_section(self) -> None:
+        self.h1("6A. Bench validation pipeline (T0–T1c)")
+        self.paras(bench_validation_paragraphs(self.ctx))
+        self.table([
+            ["Stage", "Duration", "Pass criterion"],
+            ["T0", "10 min leak + 30 min ramp", "No leaks; positive signal 15 min"],
+            ["T1", "1 h steady", "P'' within ±30% sim; P_net > 0"],
+            ["T1b", "3× 60 min A/B/C", "P_net(C) > P_net(B) > P_net(A)"],
+            ["T1c", "flat + spin 1 h", "P_net(ω) > P_net(0) after motor subtract"],
+        ], [1.0 * inch, 1.8 * inch, 3.4 * inch], "Bench protocol gates (SGH1_TEST_PROTOCOL.md).")
 
     def _hardware_full(self) -> None:
         self.h1("7. Hardware realization")
@@ -659,10 +715,12 @@ class PaperBuilder:
         self.h1("10. Conclusion and future work")
         self.p(
             "CHORUS-SGH-1 delivers a complete, falsifiable pipeline from osmotic thermodynamics "
-            "to bench hardware. Joseph Black PoC report v3 adds exhaustive layer theory, seven "
-            "numerical experiments, seven figures, and explicit separation of tier-1 PRO/AEH "
-            "claims from tier-2 column/TSC narratives. The central engineering action is bench "
-            "validation of L_p and CP on anthropogenic brine—not re-litigating whether PV dominates land area."
+            "to bench hardware and a three-layer vision stack (UDT, AOR, VOH) aimed at "
+            "osmotic-vortex hydro at desal outfalls. Black & White PoC report v5 adds layer theory "
+            "A–F, vision physics 3.7–3.9, experiments E1–E16, sixteen figures, T0–T1c validation "
+            "code, and explicit tiering of claims. The central engineering action is bench "
+            "validation of L_p and CP on anthropogenic brine—then T1b/T1c vision tests—before "
+            "utility sidestream outreach."
         )
         self.h2("10.1 Future work")
         self.paras(future_work_paragraphs(self.ctx))
@@ -792,7 +850,7 @@ class PaperBuilder:
             canvas.saveState()
             canvas.setFont("Helvetica", 8)
             canvas.drawString(0.85 * inch, 0.42 * inch,
-                              "Black (2026) · CHORUS-SGH-1 · differential-harness")
+                              "Black & White (2026) · CHORUS-SGH-1 · differential-harness")
             canvas.drawRightString(7.65 * inch, 0.42 * inch, f"Page {doc.page}")
             canvas.restoreState()
 
