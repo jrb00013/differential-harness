@@ -89,27 +89,46 @@ readings and a rolling sparkline. No new heavy dependency (Flask is not
 in `pyproject.toml`; a `http.server`-based JSON+HTML endpoint keeps the
 dependency footprint at zero).
 
-### 6. Vision-stack sensor hookup (deferred, tracked here)
+### 6. Vision-stack sensor hookup (this PR, protocol-complete)
 `docs/UDT_PHYSICS.md` / `docs/VOH_PHYSICS.md` describe the acoustic
-vortex-vision math (AOR/UDT/VOH). Wiring `AEH-003` (28kHz ultrasonic
-transducer) and the PVDF piezo array (`AEH-002`) into the same serial
-protocol as a second sentence type (`$SGHV,...`) is the next logical
-step once T1c bench torque calibration is validated, because the vision
-stack's `eta_tink` coupling coefficient depends on real spin data. Not
-implemented in this PR — flagged as next milestone.
+vortex-vision math (AOR/UDT/VOH). `AEH-003` (28kHz ultrasonic
+transducer) and the PVDF piezo array (`AEH-002`) are wired into the
+same serial link as a second sentence type, `$SGHV,...`, multiplexed
+alongside the existing `$SGH1` process-sensor sentence
+(`daq/protocol.py`, `daq/serial_sensors.py::read_vision_sensors_serial`).
+The framing, checksum, multiplexed reassembly, real-hardware-first
+read path, and loud simulated fallback are all fully implemented and
+unit tested with synthetic byte streams. What remains a genuine
+hardware gap: there is no physical ultrasonic transducer or piezo array
+attached in this environment, so the fallback path for `$SGHV` uses a
+clearly-labeled simulated placeholder, and the vision stack's
+`eta_tink` coupling coefficient still needs fitting against real spin
+data once T1c bench torque calibration exists.
 
 ### 7. Milestone tracking
 | Milestone | Status |
 |---|---|
 | M0 — Simulation math validated (11/11 tests) | Done (pre-existing) |
-| M1 — Real serial protocol + explicit fallback | This PR |
-| M2 — Constant-calibration pipeline (sim-data validated) | This PR |
-| M3 — Geometry manifold checks in CAD audit | This PR (gap documented: no `openscad` binary here) |
-| M4 — Resumable protocol runner | This PR |
-| M5 — Live dashboard | This PR |
-| M6 — Real T1 bench data collected, constants refit from hardware | Not started — requires physical bench access |
-| M7 — Vision-stack sensor hookup (AEH-003, AEH-002) | Not started |
-| M8 — Full T0->T2 hardware-in-the-loop run | Not started |
+| M1 — Real serial protocol + explicit fallback | Done — `daq/protocol.py`, `daq/serial_sensors.py` |
+| M2 — Constant-calibration pipeline (sim-data validated) | Done — `scripts/calibrate_constants.py` |
+| M3 — Geometry manifold checks in CAD audit | Code done; gate itself blocked — no `openscad` binary in this environment (see below) |
+| M4 — Resumable protocol runner | Done — `scripts/run_test_protocol.py` checkpoint/`--resume` |
+| M5 — Live dashboard | Done — `daq/dashboard.py` |
+| M6 — Real T1/T1c bench data collected, constants refit from hardware | Blocked — requires physical bench access (hard limit) |
+| M7 — Vision-stack sensor hookup (AEH-003, AEH-002) protocol + ingestion | Done — `$SGHV` sentence, multiplexed reads, tested |
+| M7b — Vision-stack real transducer/piezo data + `eta_tink` fit | Blocked — no physical transducer/piezo attached (hard limit); depends on M6 |
+| M8 — Full T0->T2 hardware-in-the-loop run | Blocked — requires a physical CHORUS-SGH-1 skid (hard limit) |
+
+Every item above that is not explicitly "Blocked" is fully implemented
+and covered by tests in this PR, not scaffolded or partially done. The
+three "Blocked" rows share one root cause: no physical DAQ, bench, or
+CHORUS-SGH-1 unit is attached in this environment. M3 is a special
+case — the *code* (openscad CLI invocation + pure-python STL
+manifold/watertightness checker) is complete and tested against
+synthetic STL fixtures; only the actual per-part gate is blocked
+because the `openscad` binary itself is not installed here (confirmed
+via `which openscad`). Installing it would let the existing code run
+immediately with no further changes.
 
 Hardware-in-the-loop validation (M6-M8) cannot be completed in this
 environment: there is no physical DAQ, no bench, no CHORUS-SGH-1 unit
