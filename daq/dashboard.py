@@ -89,7 +89,11 @@ def read_latest_window(csv_path: Path, window: int = DEFAULT_WINDOW) -> dict:
     if not rows:
         return {"n_rows": 0, "latest": None, "window": []}
 
-    tail = rows[-window:]
+    # A `window <= 0` should mean "no history, just the latest row" -- note
+    # that Python's `rows[-0:]` is `rows[0:]` (the WHOLE list), not empty,
+    # so window<=0 is special-cased rather than falling through to the
+    # slice below.
+    tail = rows[-window:] if window > 0 else rows[-1:]
 
     def _coerce(row: dict) -> dict:
         out = {}
