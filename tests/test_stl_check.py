@@ -14,11 +14,14 @@ V1 = (1.0, 0.0, 0.0)
 V2 = (0.0, 1.0, 0.0)
 V3 = (0.0, 0.0, 1.0)
 
+# Consistently, outward-facing (right-hand-rule) wound faces -- verified
+# by hand so every shared edge is traversed in OPPOSITE directions by its
+# two incident faces (a genuine closed, orientable manifold).
 CLOSED_TETRAHEDRON = [
-    (V0, V1, V2),
-    (V0, V1, V3),
-    (V0, V2, V3),
-    (V1, V2, V3),
+    (V0, V2, V1),  # face opposite V3
+    (V0, V1, V3),  # face opposite V2
+    (V0, V3, V2),  # face opposite V1
+    (V1, V2, V3),  # face opposite V0
 ]
 
 
@@ -67,3 +70,47 @@ def test_empty_mesh_is_not_ok(tmp_path):
     report = check_stl_manifold(path)
     assert report.triangle_count == 0
     assert report.ok is False
+
+
+def test_inconsistent_winding_is_detected(tmp_path):
+    # Take the closed tetrahedron and flip one face's winding order so
+    # that its shared edge is traversed the SAME direction as its
+    # neighbor instead of the opposite direction. Edge-pairing alone
+    # still sees this as "closed" (2 triangles per edge), but it is not
+    # a consistently-oriented manifold.
+    flipped = list(CLOSED_TETRAHEDRON)
+    a, b, c = flipped[0]
+    flipped[0] = (c, b, a)  # reverse this face's winding direction
+    path = tmp_path / "flipped.stl"
+    write_binary_stl(path, flipped)
+    report = check_stl_manifold(path)
+    assert report.inconsistent_winding_edges > 0
+    assert report.watertight is False
+    assert report.ok is False
+
+
+def test_consistently_wound_tetrahedron_has_no_winding_defects(tmp_path):
+    path = tmp_path / "closed.stl"
+    write_binary_stl(path, CLOSED_TETRAHEDRON)
+    report = check_stl_manifold(path)
+    assert report.inconsistent_winding_edges == 0
+
+
+def test_ascii_stl_is_rejected_with_specific_error(tmp_path):
+    path = tmp_path / "ascii.stl"
+    path.write_text(
+        "solid test\n"
+        "facet normal 0 0 0\n outer loop\n  vertex 0 0 0\n  vertex 1 0 0\n  vertex 0 1 0\n"
+        " endloop\nendfacet\nendsolid test\n",
+        encoding="utf-8",
+    )
+    report = check_stl_manifold(path)
+    assert report.ok is False
+    assert any("ASCII" in e for e in report.errors)
+
+
+def test_short_ascii_stl_is_also_rejected_as_ascii_not_generic_error(tmp_path):
+    path = tmp_path / "tiny_ascii.stl"
+    path.write_text("solid x\nendsolid x\n", encoding="utf-8")
+    report = check_stl_manifold(path)
+    assert any("ASCII" in e for e in report.errors)

@@ -87,11 +87,11 @@ generic "too small" one.
 
 | Milestone | Status |
 |---|---|
-| R2.1 — Vision-stack signal processing | This PR |
-| R2.2 — Dashboard race/edge-case hardening | This PR |
-| R2.3 — Multi-run calibration + confidence intervals | This PR |
-| R2.4 — Protocol-history CLI | This PR |
-| R2.5 — STL winding-consistency + ASCII-STL rejection | This PR |
+| R2.1 — Vision-stack signal processing | Done — `simulation/vision_signal.py` |
+| R2.2 — Dashboard race/edge-case hardening | Done — fixed a real `window=0` bug, added race/malformed-field tests |
+| R2.3 — Multi-run calibration + confidence intervals | Done — `fit_L_p_aggregate()`, MAD-based outlier flagging |
+| R2.4 — Protocol-history CLI | Done — `scripts/protocol_history.py` |
+| R2.5 — STL winding-consistency + ASCII-STL rejection | Done — `scripts/stl_check.py` |
 | R2.6 — Real vision-stack hardware validation of R2.1's algorithms | Blocked — no physical transducer/piezo attached (same hard limit as round 1's M7b) |
 
 Same hard limits as round 1 apply and are not re-litigated here: no
