@@ -4,11 +4,15 @@ from __future__ import annotations
 
 from daq.protocol import (
     FIELD_NAMES,
+    VISION_FIELD_NAMES,
     FrameError,
     StreamReassembler,
     checksum,
     encode_frame,
+    encode_vision_frame,
+    parse_any,
     parse_frame,
+    parse_vision_frame,
 )
 
 SAMPLE_VALUES = {
@@ -106,6 +110,49 @@ def test_reassembler_reports_garbled_frame_without_dropping_stream():
     assert isinstance(results[0], FrameError)
     assert not isinstance(results[1], FrameError)
     assert results[1].seq == 4
+
+
+VISION_SAMPLE_VALUES = {
+    "us_amplitude_mV": 250.0,
+    "us_phase_deg": 12.5,
+    "piezo_array_V": 1.3,
+}
+
+
+def test_vision_frame_round_trips():
+    frame_bytes = encode_vision_frame(seq=1, millis=1000, values=VISION_SAMPLE_VALUES)
+    frame = parse_vision_frame(frame_bytes.decode("ascii"))
+    assert frame.sentence_id == "SGHV"
+    for name in VISION_FIELD_NAMES:
+        assert frame.values[name] == pytest_approx(VISION_SAMPLE_VALUES[name])
+
+
+def test_parse_vision_frame_rejects_process_sentence():
+    frame_bytes = encode_frame(seq=1, millis=1000, values=SAMPLE_VALUES)
+    try:
+        parse_vision_frame(frame_bytes.decode("ascii"))
+        assert False, "expected FrameError"
+    except FrameError:
+        pass
+
+
+def test_parse_any_dispatches_both_sentence_types():
+    process_bytes = encode_frame(seq=1, millis=1000, values=SAMPLE_VALUES)
+    vision_bytes = encode_vision_frame(seq=2, millis=2000, values=VISION_SAMPLE_VALUES)
+    f1 = parse_any(process_bytes.decode("ascii"))
+    f2 = parse_any(vision_bytes.decode("ascii"))
+    assert f1.sentence_id == "SGH1"
+    assert f2.sentence_id == "SGHV"
+
+
+def test_reassembler_multiplexes_both_sentence_types():
+    reasm = StreamReassembler()
+    process_bytes = encode_frame(seq=1, millis=1000, values=SAMPLE_VALUES)
+    vision_bytes = encode_vision_frame(seq=2, millis=2000, values=VISION_SAMPLE_VALUES)
+    results = reasm.feed(process_bytes + vision_bytes)
+    assert len(results) == 2
+    assert results[0].sentence_id == "SGH1"
+    assert results[1].sentence_id == "SGHV"
 
 
 def test_reassembler_skips_leading_garbage_before_dollar_on_same_line():

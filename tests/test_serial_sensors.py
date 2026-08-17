@@ -12,8 +12,19 @@ import warnings
 
 import pytest
 
-from daq.protocol import encode_frame
-from daq.serial_sensors import FallbackToSimulation, SerialLink, read_sensors_serial
+from daq.protocol import encode_frame, encode_vision_frame
+from daq.serial_sensors import (
+    FallbackToSimulation,
+    SerialLink,
+    read_sensors_serial,
+    read_vision_sensors_serial,
+)
+
+VISION_VALUES = {
+    "us_amplitude_mV": 250.0,
+    "us_phase_deg": 12.5,
+    "piezo_array_V": 1.3,
+}
 
 SAMPLE_VALUES = {
     "p_feed_bar": 0.5,
@@ -84,6 +95,30 @@ def test_read_sensors_serial_returns_hardware_data_when_frame_available():
     assert row["data_source"] == "hardware"
     assert row["frame_seq"] == 5
     assert row["p_feed_bar"] == pytest.approx(0.5)
+
+
+def test_read_vision_sensors_serial_returns_hardware_data_when_frame_available():
+    frame_bytes = encode_vision_frame(seq=7, millis=7000, values=VISION_VALUES)
+    link = _make_link_with_chunks([frame_bytes])
+    row = read_vision_sensors_serial(0.0, "/dev/fake", link=link)
+    assert row["data_source"] == "hardware"
+    assert row["frame_seq"] == 7
+    assert row["us_amplitude_mV"] == pytest.approx(250.0)
+
+
+def test_link_multiplexes_process_and_vision_frames_via_pending_queue():
+    process_bytes = encode_frame(seq=1, millis=1000, values=SAMPLE_VALUES)
+    vision_bytes = encode_vision_frame(seq=2, millis=2000, values=VISION_VALUES)
+    # Vision frame arrives first on the wire, but the caller asks for the
+    # process frame -- it should be buffered in link._pending, not lost.
+    link = _make_link_with_chunks([vision_bytes, process_bytes])
+
+    process_row = read_sensors_serial(0.0, "/dev/fake", link=link)
+    assert process_row["data_source"] == "hardware"
+
+    vision_row = read_vision_sensors_serial(0.0, "/dev/fake", link=link)
+    assert vision_row["data_source"] == "hardware"
+    assert vision_row["us_amplitude_mV"] == pytest.approx(250.0)
 
 
 def test_read_sensors_serial_falls_back_loudly_when_no_frame_arrives():

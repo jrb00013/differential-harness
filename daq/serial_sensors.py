@@ -29,7 +29,7 @@ import warnings
 from pathlib import Path
 
 from daq.logger import DATA, read_sensors_sim, run  # noqa: F401 (run kept for API parity)
-from daq.protocol import Frame, FrameError, StreamReassembler
+from daq.protocol import SENTENCE_ID, VISION_SENTENCE_ID, Frame, FrameError, StreamReassembler
 
 log = logging.getLogger("daq.serial_sensors")
 
@@ -89,6 +89,7 @@ class SerialLink:
         self._conn: "serial.Serial | None" = None
         self.frames_ok = 0
         self.frames_bad = 0
+        self._pending: list[Frame] = []  # frames read but not yet consumed by the caller
 
     def open(self) -> bool:
         """Attempt to open the serial port. Returns True on success, False otherwise."""
@@ -128,14 +129,26 @@ class SerialLink:
                 return True
         return False
 
-    def read_frame(self, deadline_s: float | None = None) -> Frame | None:
+    def read_frame(self, deadline_s: float | None = None, sentence_id: str | None = None) -> Frame | None:
         """Block (up to deadline_s, or self.read_timeout if None) for one valid frame.
 
-        Returns None if the deadline elapses without a valid frame (caller
-        should then fall back to simulation with an explicit warning).
+        The serial link multiplexes multiple sentence types ($SGH1 process
+        sensors, $SGHV vision-stack sensors) on one connection. If
+        `sentence_id` is given, only a frame of that type is returned;
+        frames of other types encountered while waiting are buffered in
+        `self._pending` so a subsequent call (for the other sentence id)
+        can still consume them without re-reading the port.
+
+        Returns None if the deadline elapses without a matching valid
+        frame (caller should then fall back to simulation with an
+        explicit warning).
         """
         if self._conn is None:
             return None
+
+        for i, frame in enumerate(self._pending):
+            if sentence_id is None or frame.sentence_id == sentence_id:
+                return self._pending.pop(i)
 
         deadline = time.monotonic() + (deadline_s if deadline_s is not None else self.read_timeout)
         while time.monotonic() < deadline:
@@ -157,7 +170,9 @@ class SerialLink:
                     log.warning("Dropped malformed frame from %s: %s", self.port, result)
                     continue
                 self.frames_ok += 1
-                return result
+                if sentence_id is None or result.sentence_id == sentence_id:
+                    return result
+                self._pending.append(result)  # not the type we're waiting for; save it
         return None
 
 
@@ -185,13 +200,73 @@ def read_sensors_serial(
         row["serial_port"] = port
         return row
 
-    frame = link.read_frame()
+    frame = link.read_frame(sentence_id=SENTENCE_ID)
     if frame is None:
         _warn_fallback(
-            f"no valid frame received from {port!r} within {link.read_timeout}s "
+            f"no valid $SGH1 frame received from {port!r} within {link.read_timeout}s "
             f"(ok={link.frames_ok}, bad={link.frames_bad})"
         )
         row = read_sensors_sim(t)
+        row["data_source"] = "simulated"
+        row["serial_port"] = port
+        return row
+
+    row = dict(frame.values)
+    row["data_source"] = "hardware"
+    row["serial_port"] = port
+    row["frame_seq"] = frame.seq
+    return row
+
+
+def _vision_sensors_sim(t: float) -> dict[str, float]:
+    """Simulated fallback for the vision-stack ($SGHV) sensor node.
+
+    There is no real acoustic/vortex hardware attached in this
+    environment (docs/ROADMAP.md M7); this is a clearly-labeled
+    simulated placeholder consistent in shape with daq.protocol's
+    VISION_FIELD_NAMES, used only so downstream tooling has a value to
+    consume when no vision-stack node answers.
+    """
+    import math
+
+    return {
+        "us_amplitude_mV": 250.0 + 15.0 * math.sin(t / 9),
+        "us_phase_deg": 0.0,
+        "piezo_array_V": 1.2 + 0.1 * math.sin(t / 6),
+    }
+
+
+def read_vision_sensors_serial(
+    t: float,
+    port: str | None,
+    link: SerialLink | None = None,
+) -> dict[str, float]:
+    """Return one $SGHV (vision-stack) sensor row, sourced from real
+    hardware when possible, falling back loudly to simulation otherwise.
+
+    Mirrors read_sensors_serial's contract exactly, but for the
+    AEH-003 ultrasonic transducer / AEH-002 PVDF piezo array sentence.
+    """
+    if not port:
+        _warn_fallback("no --port configured for vision-stack sensor node")
+        row = _vision_sensors_sim(t)
+        row["data_source"] = "simulated"
+        return row
+
+    if link is None or link._conn is None:
+        _warn_fallback(f"could not open or maintain serial port {port!r} for vision-stack node")
+        row = _vision_sensors_sim(t)
+        row["data_source"] = "simulated"
+        row["serial_port"] = port
+        return row
+
+    frame = link.read_frame(sentence_id=VISION_SENTENCE_ID)
+    if frame is None:
+        _warn_fallback(
+            f"no valid $SGHV frame received from {port!r} within {link.read_timeout}s "
+            f"(ok={link.frames_ok}, bad={link.frames_bad})"
+        )
+        row = _vision_sensors_sim(t)
         row["data_source"] = "simulated"
         row["serial_port"] = port
         return row
