@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
-"""Audit OpenSCAD library: modules, includes, key dimensions."""
+"""Audit OpenSCAD library: modules, includes, key dimensions, geometry validity."""
 
 from __future__ import annotations
 
 import json
 import re
+import shutil
+import subprocess
+import tempfile
 from pathlib import Path
+
+from scripts.stl_check import check_stl_manifold
 
 ROOT = Path(__file__).resolve().parent.parent
 SCAD_DIR = ROOT / "hardware" / "openscad"
 EXPORT = ROOT / "exports" / "openscad_audit.json"
+OPENSCAD_RENDER_TIMEOUT_S = 120
 
 
 def parse_scad(path: Path) -> dict:
@@ -61,17 +67,94 @@ def housing_summary() -> dict:
     }
 
 
+def openscad_binary() -> str | None:
+    return shutil.which("openscad")
+
+
+def geometry_check(scad_path: Path, binary: str | None) -> dict:
+    """Render `scad_path` to binary STL via the openscad CLI and manifold-check it.
+
+    If the openscad binary is not present on this machine, this returns
+    an explicit skip reason rather than silently omitting the check or
+    pretending it passed.
+    """
+    if binary is None:
+        return {
+            "geometry_check": "skipped: openscad binary not found on PATH",
+            "watertight": None,
+        }
+
+    with tempfile.TemporaryDirectory() as td:
+        stl_path = Path(td) / (scad_path.stem + ".stl")
+        try:
+            proc = subprocess.run(
+                [binary, "--export-format=binstl", "-o", str(stl_path), str(scad_path)],
+                capture_output=True,
+                text=True,
+                timeout=OPENSCAD_RENDER_TIMEOUT_S,
+            )
+        except subprocess.TimeoutExpired:
+            return {
+                "geometry_check": f"skipped: openscad render exceeded {OPENSCAD_RENDER_TIMEOUT_S}s timeout",
+                "watertight": None,
+            }
+        except OSError as exc:
+            return {
+                "geometry_check": f"skipped: failed to invoke openscad ({exc})",
+                "watertight": None,
+            }
+
+        if proc.returncode != 0 or not stl_path.exists():
+            return {
+                "geometry_check": "failed: openscad render error",
+                "openscad_stderr": proc.stderr[-2000:],
+                "watertight": False,
+            }
+
+        report = check_stl_manifold(stl_path)
+        return {
+            "geometry_check": "rendered",
+            "watertight": report.watertight,
+            "triangle_count": report.triangle_count,
+            "degenerate_triangles": report.degenerate_triangles,
+            "open_edges": report.open_edges,
+            "non_manifold_edges": report.non_manifold_edges,
+            "mesh_ok": report.ok,
+        }
+
+
 def main() -> None:
     parts = sorted(SCAD_DIR.glob("*.scad"))
+    binary = openscad_binary()
+    part_audits = []
+    for p in parts:
+        entry = parse_scad(p)
+        entry.update(geometry_check(p, binary))
+        part_audits.append(entry)
+
+    n_checked = sum(1 for e in part_audits if e["geometry_check"] == "rendered")
+    n_watertight = sum(1 for e in part_audits if e.get("watertight") is True)
+
     audit = {
         "generated_constants": housing_summary(),
         "aeh_panel": helmholtz_summary(),
-        "parts": [parse_scad(p) for p in parts],
+        "parts": part_audits,
         "part_count": len(parts),
         "assembly_files": [p.name for p in parts if "assembly" in p.name],
+        "openscad_binary_found": binary is not None,
+        "geometry_checked_count": n_checked,
+        "geometry_watertight_count": n_watertight,
+        "geometry_check_note": (
+            "openscad CLI not found in this environment; per-part geometry_check "
+            "is 'skipped' with an explicit reason rather than a silent pass. "
+            "See docs/ROADMAP.md M3."
+            if binary is None
+            else f"{n_watertight}/{n_checked} rendered parts are watertight."
+        ),
     }
     EXPORT.write_text(json.dumps(audit, indent=2), encoding="utf-8")
     print(f"Wrote {EXPORT} ({audit['part_count']} parts)")
+    print(audit["geometry_check_note"])
 
 
 if __name__ == "__main__":
