@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -213,6 +214,383 @@ def compute_lcoe(
     )
 
 
+def _bisect_monotonic_decreasing(
+    f,
+    target: float,
+    lo: float,
+    hi: float,
+    *,
+    tol: float = 1e-6,
+    max_iter: int = 200,
+) -> float | None:
+    """Find x in [lo, hi] such that f(x) == target, given f is monotonically
+    DECREASING in x (e.g. LCOE decreases as power density or membrane life
+    increases). Returns None if target is not bracketed by [f(hi), f(lo)]
+    (i.e. unreachable within the search range even at its most favorable
+    endpoint)."""
+    f_lo, f_hi = f(lo), f(hi)
+    # decreasing f: f_lo should be >= target >= f_hi for target to be bracketed
+    if not (f_hi <= target <= f_lo):
+        return None
+    for _ in range(max_iter):
+        mid = 0.5 * (lo + hi)
+        f_mid = f(mid)
+        if abs(f_mid - target) < tol * max(abs(target), 1.0):
+            return mid
+        if f_mid > target:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
+
+
+def _bisect_monotonic_increasing(
+    f,
+    target: float,
+    lo: float,
+    hi: float,
+    *,
+    tol: float = 1e-6,
+    max_iter: int = 200,
+) -> float | None:
+    """Same as _bisect_monotonic_decreasing but for f monotonically
+    INCREASING in x (e.g. LCOE increases with membrane cost)."""
+    f_lo, f_hi = f(lo), f(hi)
+    if not (f_lo <= target <= f_hi):
+        return None
+    for _ in range(max_iter):
+        mid = 0.5 * (lo + hi)
+        f_mid = f(mid)
+        if abs(f_mid - target) < tol * max(abs(target), 1.0):
+            return mid
+        if f_mid < target:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
+
+
+# Physical/practical ceilings used to judge whether a breakeven solution is
+# plausible, all sourced from docs/math/REAL_WORLD_DATA.md:
+#   "Lab hypersaline, high P | 25-60 | Not sidestream default | ES&T Lett.
+#   McCutcheon et al." -- the highest areal power density reported ANYWHERE
+#   in the PRO literature this repo has anchored, under non-representative
+#   lab conditions (not a sidestream/bench design point).
+POWER_DENSITY_CEILING_W_M2 = 60.0
+# A membrane cost of exactly $0/m^2 is the trivial floor; treated as the
+# search floor rather than claiming anything below it is meaningful.
+MEMBRANE_COST_FLOOR_USD_M2 = 0.0
+# An arbitrarily long membrane life is not physically meaningless the way
+# negative cost or superluminal density would be, but industrial RO/FO
+# membranes are not documented anywhere in the public literature lasting
+# beyond ~10-15 years even in favorable conditions before support-layer
+# compaction/aging dominates; used here as a practical (not hard-physical)
+# ceiling.
+MEMBRANE_LIFE_CEILING_YEARS = 15.0
+
+
+@dataclass
+class BreakevenResult:
+    parameter: str
+    target_lcoe_usd_per_kWh: float
+    solved_value: float | None
+    ceiling: float
+    plausible: bool
+    verdict: str
+
+
+def solve_breakeven_power_density(
+    target_lcoe_usd_per_kWh: float,
+    P_target_W: float = 1000.0,
+    **lcoe_kwargs,
+) -> BreakevenResult:
+    """What power density (W/m^2), holding all other lcoe_kwargs fixed,
+    would be needed to hit target_lcoe_usd_per_kWh? LCOE decreases
+    monotonically as power density increases (fewer skid units needed
+    for the same target power, so BOP capex drops faster than net energy
+    drops), so this is a decreasing-function bisection."""
+
+    def lcoe_at(density: float) -> float:
+        return compute_lcoe(P_target_W=P_target_W, P_density_W_m2=density, **lcoe_kwargs).lcoe_usd_per_kWh
+
+    solved = _bisect_monotonic_decreasing(
+        lcoe_at, target_lcoe_usd_per_kWh, lo=0.5, hi=POWER_DENSITY_CEILING_W_M2 * 4
+    )
+    plausible = solved is not None and solved <= POWER_DENSITY_CEILING_W_M2
+    if solved is None:
+        verdict = (
+            f"UNREACHABLE: even at {POWER_DENSITY_CEILING_W_M2 * 4:.0f} W/m^2 "
+            f"(far beyond any reported PRO density), LCOE does not reach "
+            f"${target_lcoe_usd_per_kWh:.3f}/kWh with these cost assumptions."
+        )
+    elif plausible:
+        verdict = (
+            f"PLAUSIBLE: {solved:.2f} W/m^2 is within the {POWER_DENSITY_CEILING_W_M2:.0f} "
+            f"W/m^2 lab-hypersaline ceiling reported in docs/math/REAL_WORLD_DATA.md."
+        )
+    else:
+        verdict = (
+            f"IMPLAUSIBLE: reaching ${target_lcoe_usd_per_kWh:.3f}/kWh requires "
+            f"{solved:.2f} W/m^2, which EXCEEDS the {POWER_DENSITY_CEILING_W_M2:.0f} "
+            f"W/m^2 highest lab-reported PRO density in the public literature this "
+            f"repo has anchored."
+        )
+    return BreakevenResult(
+        parameter="P_density_W_m2",
+        target_lcoe_usd_per_kWh=target_lcoe_usd_per_kWh,
+        solved_value=solved,
+        ceiling=POWER_DENSITY_CEILING_W_M2,
+        plausible=plausible,
+        verdict=verdict,
+    )
+
+
+def solve_breakeven_membrane_cost(
+    target_lcoe_usd_per_kWh: float,
+    P_target_W: float = 1000.0,
+    **lcoe_kwargs,
+) -> BreakevenResult:
+    """What membrane $/m^2, holding all else fixed, would hit the target?
+    LCOE increases monotonically with membrane cost, so any positive
+    target below the cost-free LCOE floor is reachable by construction
+    (membrane cost -> 0) -- the interesting question is whether the
+    REQUIRED value is a plausible cost at all (it's always plausible in
+    the trivial sense that $0/m^2 is achievable in the limit only, i.e.
+    free -- flagged as implausible if the solved cost is at or below the
+    floor, meaning even a FREE membrane would not reach the target)."""
+
+    def lcoe_at(cost: float) -> float:
+        return compute_lcoe(P_target_W=P_target_W, membrane_cost_usd_m2=cost, **lcoe_kwargs).lcoe_usd_per_kWh
+
+    solved = _bisect_monotonic_increasing(
+        lcoe_at, target_lcoe_usd_per_kWh, lo=MEMBRANE_COST_FLOOR_USD_M2, hi=MEMBRANE_COST_HIGH_USD_M2 * 10
+    )
+    plausible = solved is not None and solved > MEMBRANE_COST_FLOOR_USD_M2
+    if solved is None:
+        verdict = (
+            f"UNREACHABLE: even at ${MEMBRANE_COST_HIGH_USD_M2 * 10:.0f}/m^2, LCOE does "
+            f"not reach ${target_lcoe_usd_per_kWh:.3f}/kWh -- membrane cost is not the "
+            f"binding constraint here."
+        )
+    elif plausible:
+        verdict = f"PLAUSIBLE: membrane cost would need to be ${solved:.2f}/m^2."
+    else:
+        verdict = (
+            f"IMPLAUSIBLE: reaching ${target_lcoe_usd_per_kWh:.3f}/kWh requires a "
+            f"membrane cost at or below the $0/m^2 floor -- membrane cost alone "
+            f"cannot close this gap regardless of how cheap the membrane becomes."
+        )
+    return BreakevenResult(
+        parameter="membrane_cost_usd_m2",
+        target_lcoe_usd_per_kWh=target_lcoe_usd_per_kWh,
+        solved_value=solved,
+        ceiling=MEMBRANE_COST_FLOOR_USD_M2,
+        plausible=plausible,
+        verdict=verdict,
+    )
+
+
+def solve_breakeven_membrane_life(
+    target_lcoe_usd_per_kWh: float,
+    P_target_W: float = 1000.0,
+    **lcoe_kwargs,
+) -> BreakevenResult:
+    """What membrane replacement life (years), holding all else fixed,
+    would hit the target? LCOE decreases as life increases (annualized
+    membrane capex shrinks), so this is a decreasing-function bisection,
+    checked against a practical (not hard-physical) ceiling."""
+
+    def lcoe_at(life: float) -> float:
+        return compute_lcoe(P_target_W=P_target_W, membrane_life_years=life, **lcoe_kwargs).lcoe_usd_per_kWh
+
+    solved = _bisect_monotonic_decreasing(
+        lcoe_at, target_lcoe_usd_per_kWh, lo=0.5, hi=MEMBRANE_LIFE_CEILING_YEARS * 10
+    )
+    plausible = solved is not None and solved <= MEMBRANE_LIFE_CEILING_YEARS
+    if solved is None:
+        verdict = (
+            f"UNREACHABLE: even at a {MEMBRANE_LIFE_CEILING_YEARS * 10:.0f}-year membrane "
+            f"life, LCOE does not reach ${target_lcoe_usd_per_kWh:.3f}/kWh -- membrane "
+            f"life is not the binding constraint here."
+        )
+    elif plausible:
+        verdict = (
+            f"PLAUSIBLE: a {solved:.1f}-year membrane life is within the "
+            f"{MEMBRANE_LIFE_CEILING_YEARS:.0f}-year practical ceiling for industrial "
+            f"RO/FO membranes."
+        )
+    else:
+        verdict = (
+            f"IMPLAUSIBLE: reaching ${target_lcoe_usd_per_kWh:.3f}/kWh requires a "
+            f"{solved:.1f}-year membrane life, EXCEEDING the "
+            f"{MEMBRANE_LIFE_CEILING_YEARS:.0f}-year practical ceiling documented for "
+            f"industrial RO/FO membranes."
+        )
+    return BreakevenResult(
+        parameter="membrane_life_years",
+        target_lcoe_usd_per_kWh=target_lcoe_usd_per_kWh,
+        solved_value=solved,
+        ceiling=MEMBRANE_LIFE_CEILING_YEARS,
+        plausible=plausible,
+        verdict=verdict,
+    )
+
+
+def breakeven_report(target_lcoe_usd_per_kWh: float, P_target_W: float = 1000.0, **lcoe_kwargs) -> dict:
+    """Run all three single-parameter breakeven solvers against one target
+    and summarize whether ANY plausible single-parameter path exists."""
+    results = {
+        "power_density": solve_breakeven_power_density(target_lcoe_usd_per_kWh, P_target_W, **lcoe_kwargs),
+        "membrane_cost": solve_breakeven_membrane_cost(target_lcoe_usd_per_kWh, P_target_W, **lcoe_kwargs),
+        "membrane_life": solve_breakeven_membrane_life(target_lcoe_usd_per_kWh, P_target_W, **lcoe_kwargs),
+    }
+    any_plausible = any(r.plausible for r in results.values())
+    return {
+        "target_lcoe_usd_per_kWh": target_lcoe_usd_per_kWh,
+        "results": {k: asdict(v) for k, v in results.items()},
+        "any_single_parameter_plausible": any_plausible,
+        "summary": (
+            "At least one single-parameter change stays within a known physical/"
+            "practical ceiling."
+            if any_plausible
+            else "NO single-parameter change (power density, membrane cost, or "
+            "membrane life alone) reaches this target within known physical/"
+            "practical ceilings -- closing this gap would require multiple "
+            "simultaneous improvements, not one lever."
+        ),
+    }
+
+
+# --- Manufacturing / volume learning-curve model (Wright's law) ---
+#
+# Wright's law: cost declines by a constant fraction (the "learning rate")
+# for every DOUBLING of cumulative production volume:
+#     cost(N) = cost(N0) * (N / N0) ** b,  b = log2(1 - learning_rate)
+#
+# Learning rates by technology, from public research (see
+# docs/ECONOMICS.md Sources for full citations):
+#   - Solar PV: ~20-24% per doubling (sustained over 4+ decades).
+#   - Wright's own original 1936 aircraft-manufacturing study: ~15% per
+#     doubling.
+#   - General range cited across semiconductors/batteries/solar/genome
+#     sequencing: 20-30%.
+#   - No PRO/FO-membrane-specific or small-batch-BOP-hardware-specific
+#     learning rate was found in the public literature -- this is a real,
+#     stated gap, not filled in with an invented number. Three scenarios
+#     are offered instead of one invented "best" rate:
+LEARNING_RATE_CONSERVATIVE = 0.10  # simple/mature hardware analog (low end of general range)
+LEARNING_RATE_TYPICAL = 0.15  # Wright's original aircraft-manufacturing rate
+LEARNING_RATE_SOLAR_ANALOG = 0.20  # solar PV's sustained real-world rate, optimistic analog
+
+
+def learning_curve_cost(
+    baseline_cost: float,
+    baseline_volume: float,
+    target_volume: float,
+    learning_rate: float,
+) -> float:
+    """Wright's law: cost at target_volume given a baseline cost/volume and
+    a per-doubling learning rate (e.g. 0.20 for 20% cost decline per
+    doubling of cumulative units produced)."""
+    if baseline_volume <= 0 or target_volume <= 0:
+        raise ValueError("volumes must be positive")
+    b = math.log2(1.0 - learning_rate)
+    return baseline_cost * (target_volume / baseline_volume) ** b
+
+
+def volume_cost_projection(
+    baseline_bop_cost_usd: float = BOP_COST_HIGH_USD,
+    baseline_membrane_cost_usd_m2: float = MEMBRANE_COST_HIGH_USD_M2,
+    volumes: tuple[int, ...] = (1, 10, 100, 1000),
+) -> list[dict]:
+    """Project BOP and membrane cost at 10x/100x/1000x cumulative unit
+    volume (relative to a volume-1 prototype baseline, i.e. this repo's
+    own bench BOM cost), across the three learning-rate scenarios above.
+    This answers 'could this get cheaper with scale' honestly -- it is a
+    projection grounded in real per-technology learning rates, not a
+    claim that CHORUS-SGH-1 specifically will follow any of them."""
+    rows = []
+    for label, rate in (
+        ("conservative_10pct", LEARNING_RATE_CONSERVATIVE),
+        ("typical_15pct", LEARNING_RATE_TYPICAL),
+        ("solar_analog_20pct", LEARNING_RATE_SOLAR_ANALOG),
+    ):
+        for volume in volumes:
+            bop_cost = learning_curve_cost(baseline_bop_cost_usd, 1, volume, rate)
+            mem_cost = learning_curve_cost(baseline_membrane_cost_usd_m2, 1, volume, rate)
+            lcoe_result = compute_lcoe(
+                P_target_W=1000.0,
+                P_density_W_m2=8.0,
+                bop_cost_usd_per_skid=bop_cost,
+                membrane_cost_usd_m2=mem_cost,
+            )
+            rows.append(
+                {
+                    "learning_rate_scenario": label,
+                    "learning_rate": rate,
+                    "cumulative_volume": volume,
+                    "bop_cost_usd_per_skid": bop_cost,
+                    "membrane_cost_usd_m2": mem_cost,
+                    "lcoe_usd_per_kWh_at_1kW_practical_density": lcoe_result.lcoe_usd_per_kWh,
+                }
+            )
+    return rows
+
+
+# --- Value beyond raw $/kWh: avoided transmission & distribution credit ---
+#
+# A generator co-located AT the point of use (here, at a desalination
+# plant's own brine outfall or a coastal WWTP) avoids the transmission and
+# distribution (T&D) infrastructure cost a grid-delivered kWh normally
+# carries. Real utility avoided-cost studies quantify this: one published
+# analysis found avoided T&D capacity value of "at least 2.02 cents/kWh"
+# (avoided transmission 1.34 cents/kWh + avoided distribution 0.52
+# cents/kWh); a Pennsylvania T&D avoided-cost study found distribution
+# capacity deferral values of $100-200/kW-year in 2026 dollars. This
+# credit is REAL and citable but SMALL relative to the multi-dollar/kWh
+# gap found above -- reported here as an honest partial offset, not a
+# solution.
+AVOIDED_TD_CREDIT_USD_PER_KWH = 0.02
+
+
+def co_benefit_adjusted_lcoe(raw_lcoe_usd_per_kWh: float, avoided_td_credit_usd_per_kWh: float = AVOIDED_TD_CREDIT_USD_PER_KWH) -> dict:
+    """Apply the avoided-T&D credit as a partial offset against a raw LCOE
+    result, and report both the offset and how much of the solar/wind gap
+    it actually closes (honestly: not much, at multi-dollar/kWh raw
+    values) -- never presented as closing the underlying capex-driven
+    gap on its own.
+
+    NOTE on the "the brine is already flowing, so fuel is free" argument:
+    that is already fully reflected in compute_lcoe() -- there is no fuel
+    cost line item anywhere in the capex/opex model, because the
+    concentration-gradient "fuel" genuinely is free. That argument does
+    NOT provide an additional credit beyond what's already modeled; it
+    only explains why the capex/parasitics side of the ledger is the
+    entire story for this technology, which is precisely why sections
+    R4.1/R4.3 attack capex and power density rather than a fuel cost that
+    was never present as a line item in the first place.
+    """
+    adjusted = max(raw_lcoe_usd_per_kWh - avoided_td_credit_usd_per_kWh, 0.0)
+    pct_of_gap_closed = (
+        100.0 * avoided_td_credit_usd_per_kWh / raw_lcoe_usd_per_kWh if raw_lcoe_usd_per_kWh > 0 else 0.0
+    )
+    return {
+        "raw_lcoe_usd_per_kWh": raw_lcoe_usd_per_kWh,
+        "avoided_td_credit_usd_per_kWh": avoided_td_credit_usd_per_kWh,
+        "co_benefit_adjusted_lcoe_usd_per_kWh": adjusted,
+        "pct_of_raw_lcoe_offset": pct_of_gap_closed,
+        "note": (
+            "The avoided-T&D credit is real and citable (utility avoided-cost "
+            "studies) but small in absolute terms (~$0.02/kWh) relative to "
+            "CHORUS-SGH-1's multi-dollar/kWh capex-driven LCOE -- it offsets a "
+            "small percentage of the raw number, not the underlying gap. The "
+            "'brine is already flowing, fuel is free' argument is already fully "
+            "reflected in compute_lcoe (no fuel line item exists), so it is not "
+            "double-counted as a second credit here."
+        ),
+    }
+
+
 def sensitivity_sweep(P_target_W: float = 50.0) -> list[dict]:
     """LCOE across the honest optimistic<->conservative bound combinations,
     for the sensitivity table in docs/ECONOMICS.md."""
@@ -249,12 +627,47 @@ def main() -> None:
     p.add_argument("--density-w-m2", type=float, default=8.0)
     p.add_argument("--capacity-factor", type=float, default=0.90)
     p.add_argument("--sensitivity", action="store_true", help="print the full optimistic/conservative sweep")
+    p.add_argument(
+        "--breakeven",
+        type=float,
+        default=None,
+        metavar="TARGET_USD_PER_KWH",
+        help="run breakeven_report against this target LCOE (e.g. 0.09 for Lazard's solar/wind upper bound)",
+    )
+    p.add_argument(
+        "--learning-curve",
+        action="store_true",
+        help="print the volume_cost_projection (10x/100x/1000x manufacturing scale)",
+    )
+    p.add_argument(
+        "--co-benefit",
+        action="store_true",
+        help="apply the avoided-T&D credit to the computed LCOE and report the offset",
+    )
     p.add_argument("--out", type=Path, default=None)
     args = p.parse_args()
 
     if args.sensitivity:
         rows = sensitivity_sweep(P_target_W=args.power_w)
         out = args.out or EXPORTS / "lcoe_sensitivity.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+        print(f"Wrote {out}")
+        print(json.dumps(rows, indent=2))
+        return
+
+    if args.breakeven is not None:
+        report = breakeven_report(args.breakeven, P_target_W=args.power_w)
+        out = args.out or EXPORTS / "lcoe_breakeven.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(report, indent=2), encoding="utf-8")
+        print(f"Wrote {out}")
+        print(json.dumps(report, indent=2))
+        return
+
+    if args.learning_curve:
+        rows = volume_cost_projection()
+        out = args.out or EXPORTS / "lcoe_learning_curve.json"
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(rows, indent=2), encoding="utf-8")
         print(f"Wrote {out}")
@@ -273,6 +686,8 @@ def main() -> None:
         "total_capex_usd": result.total_capex_usd,
         "lcoe_usd_per_kWh": result.lcoe_usd_per_kWh,
     }
+    if args.co_benefit:
+        payload["co_benefit"] = co_benefit_adjusted_lcoe(result.lcoe_usd_per_kWh)
     out = args.out or EXPORTS / "lcoe_result.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(payload, indent=2), encoding="utf-8")

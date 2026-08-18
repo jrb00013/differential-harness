@@ -98,6 +98,28 @@ for brine-discharge ecology and regulatory precedent, and
 [docs/FOULING_TEST_PROTOCOL.md](docs/FOULING_TEST_PROTOCOL.md) for the
 T1f fouling-resistance test phase.
 
+Round 4 (see [docs/ROADMAP_ROUND4.md](docs/ROADMAP_ROUND4.md)) attacks
+round 3's cost gap directly: breakeven sensitivity, a manufacturing
+learning-curve projection, and an avoided-cost co-benefit credit.
+
+```bash
+# What single parameter (density/membrane cost/membrane life) would
+# need to change, and by how much, to hit a target LCOE?
+python -m scripts.lcoe_model --breakeven 0.09 --power-w 1000
+
+# Cost at 10x/100x/1000x manufacturing volume (Wright's law).
+python -m scripts.lcoe_model --learning-curve
+
+# Apply the real, cited avoided-transmission-and-distribution credit.
+python -m scripts.lcoe_model --power-w 1000 --co-benefit
+```
+
+Honest bottom line (full detail in `docs/ECONOMICS.md`): no single
+lever closes the gap to solar/wind, and manufacturing scale alone
+doesn't either — only stacking lab-grade power density AND 1000x
+production volume simultaneously reaches battery-storage-adjacent
+economics (~$0.30/kWh), not solar/wind directly.
+
 ## Research paper (PoC)
 
 **Joseph Black** and **Connor White** — *CHORUS-SGH-1: Brine-Gradient Power, UDT/AOR/VOH Vision, and Osmotic-Vortex Hydro* ([PDF](papers/Black_2026_CHORUS_SGH1_PoC.pdf) · [source](papers/black_2026_chorus_sgh1_poc.md))

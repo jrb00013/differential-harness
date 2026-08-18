@@ -13,6 +13,19 @@ from __future__ import annotations
 import pytest
 
 from scripts.lcoe_model import (
+    AVOIDED_TD_CREDIT_USD_PER_KWH,
+    LEARNING_RATE_SOLAR_ANALOG,
+    LEARNING_RATE_TYPICAL,
+    MEMBRANE_LIFE_CEILING_YEARS,
+    POWER_DENSITY_CEILING_W_M2,
+    breakeven_report,
+    co_benefit_adjusted_lcoe,
+    learning_curve_cost,
+    solve_breakeven_membrane_cost,
+    solve_breakeven_membrane_life,
+    solve_breakeven_power_density,
+    volume_cost_projection,
+
     BOP_COST_HIGH_USD,
     MEMBRANE_COST_HIGH_USD_M2,
     capital_recovery_factor,
@@ -89,3 +102,159 @@ def test_sensitivity_sweep_optimistic_cost_beats_conservative_cost_same_density(
     optimistic = by_key[("practical", "optimistic")]
     conservative = by_key[("practical", "conservative")]
     assert optimistic["lcoe_usd_per_kWh"] < conservative["lcoe_usd_per_kWh"]
+
+
+# --- Breakeven sensitivity solvers (round 4) ---
+
+
+def test_solve_breakeven_power_density_round_trips_with_compute_lcoe():
+    target = 6.4
+    result = solve_breakeven_power_density(target, P_target_W=1000.0)
+    assert result.plausible is True
+    assert result.solved_value is not None
+    check = compute_lcoe(P_target_W=1000.0, P_density_W_m2=result.solved_value)
+    assert check.lcoe_usd_per_kWh == pytest.approx(target, rel=1e-3)
+
+
+def test_solve_breakeven_power_density_flags_implausible_when_beyond_ceiling():
+    # $2/kWh with default (conservative) costs requires >60 W/m^2 -- beyond
+    # the lab-hypersaline ceiling.
+    result = solve_breakeven_power_density(2.0, P_target_W=1000.0)
+    assert result.solved_value is not None
+    assert result.solved_value > POWER_DENSITY_CEILING_W_M2
+    assert result.plausible is False
+    assert "EXCEEDS" in result.verdict
+
+
+def test_solve_breakeven_power_density_reports_unreachable_for_solar_benchmark():
+    # Lazard's solar/wind upper bound ($0.09/kWh) is not reachable via
+    # power density alone even at 4x the lab-hypersaline ceiling.
+    result = solve_breakeven_power_density(0.09, P_target_W=1000.0)
+    assert result.solved_value is None
+    assert result.plausible is False
+    assert "UNREACHABLE" in result.verdict
+
+
+def test_solve_breakeven_membrane_cost_round_trips():
+    baseline = compute_lcoe(P_target_W=1000.0, P_density_W_m2=8.0)
+    result = solve_breakeven_membrane_cost(baseline.lcoe_usd_per_kWh, P_target_W=1000.0, P_density_W_m2=8.0)
+    assert result.solved_value == pytest.approx(150.0, rel=1e-2)  # default membrane cost used by compute_lcoe
+
+
+def test_solve_breakeven_membrane_cost_implausible_at_zero_floor():
+    result = solve_breakeven_membrane_cost(0.09, P_target_W=1000.0)
+    assert result.solved_value is None
+    assert result.plausible is False
+
+
+def test_solve_breakeven_membrane_life_round_trips():
+    baseline = compute_lcoe(P_target_W=1000.0, membrane_life_years=5.0)
+    result = solve_breakeven_membrane_life(baseline.lcoe_usd_per_kWh, P_target_W=1000.0)
+    assert result.solved_value == pytest.approx(5.0, rel=1e-2)
+
+
+def test_solve_breakeven_membrane_life_implausible_or_unreachable_for_hard_target():
+    # At $2/kWh, membrane life alone is far from the binding constraint
+    # (BOP capex dominates at this scale) -- this may resolve as either
+    # "requires an implausibly long life" or fully unreachable; either
+    # way it must NOT be reported as plausible.
+    result = solve_breakeven_membrane_life(2.0, P_target_W=1000.0)
+    assert result.plausible is False
+    if result.solved_value is not None:
+        assert result.solved_value > MEMBRANE_LIFE_CEILING_YEARS
+
+
+def test_breakeven_report_states_no_plausible_path_for_solar_benchmark():
+    report = breakeven_report(0.09, P_target_W=1000.0)
+    assert report["any_single_parameter_plausible"] is False
+    assert "NO single-parameter change" in report["summary"]
+    assert set(report["results"].keys()) == {"power_density", "membrane_cost", "membrane_life"}
+
+
+def test_breakeven_report_finds_plausible_path_for_a_reachable_target():
+    report = breakeven_report(6.4, P_target_W=1000.0)
+    assert report["any_single_parameter_plausible"] is True
+
+
+# --- Learning-curve / manufacturing-volume model (round 4) ---
+
+
+def test_learning_curve_cost_matches_hand_computed_value_at_one_doubling():
+    # One doubling (volume 2 vs baseline 1) at a 20% learning rate should
+    # give exactly cost * 0.80, by definition of "20% decline per doubling."
+    cost = learning_curve_cost(100.0, baseline_volume=1, target_volume=2, learning_rate=0.20)
+    assert cost == pytest.approx(80.0, rel=1e-9)
+
+
+def test_learning_curve_cost_matches_hand_computed_value_at_ten_doublings():
+    # 2^10 = 1024x volume at a 15% learning rate -> cost * 0.85**10
+    cost = learning_curve_cost(100.0, baseline_volume=1, target_volume=1024, learning_rate=0.15)
+    assert cost == pytest.approx(100.0 * 0.85**10, rel=1e-9)
+
+
+def test_learning_curve_cost_rejects_nonpositive_volumes():
+    with pytest.raises(ValueError):
+        learning_curve_cost(100.0, baseline_volume=0, target_volume=10, learning_rate=0.15)
+    with pytest.raises(ValueError):
+        learning_curve_cost(100.0, baseline_volume=1, target_volume=-5, learning_rate=0.15)
+
+
+def test_learning_curve_cost_higher_learning_rate_gives_lower_cost_at_same_volume():
+    low_rate_cost = learning_curve_cost(100.0, 1, 1000, LEARNING_RATE_TYPICAL)
+    high_rate_cost = learning_curve_cost(100.0, 1, 1000, LEARNING_RATE_SOLAR_ANALOG)
+    assert high_rate_cost < low_rate_cost
+
+
+def test_volume_cost_projection_costs_decrease_monotonically_with_volume():
+    rows = volume_cost_projection(volumes=(1, 10, 100, 1000))
+    by_scenario: dict[str, list[dict]] = {}
+    for row in rows:
+        by_scenario.setdefault(row["learning_rate_scenario"], []).append(row)
+
+    for scenario_rows in by_scenario.values():
+        scenario_rows.sort(key=lambda r: r["cumulative_volume"])
+        costs = [r["bop_cost_usd_per_skid"] for r in scenario_rows]
+        assert costs == sorted(costs, reverse=True)
+        lcoes = [r["lcoe_usd_per_kWh_at_1kW_practical_density"] for r in scenario_rows]
+        assert lcoes == sorted(lcoes, reverse=True)
+
+
+def test_volume_cost_projection_even_at_1000x_solar_analog_rate_stays_above_solar_wind():
+    # The honest round-4 finding: even 1000x cumulative volume at the most
+    # optimistic (solar-analog) learning rate, at PRACTICAL (not lab-ceiling)
+    # power density, does not reach Lazard's solar/wind LCOE range
+    # ($0.03-0.09/kWh) -- manufacturing scale alone does not close the gap.
+    rows = volume_cost_projection(volumes=(1000,))
+    solar_analog_1000x = next(r for r in rows if r["learning_rate_scenario"] == "solar_analog_20pct")
+    assert solar_analog_1000x["lcoe_usd_per_kWh_at_1kW_practical_density"] > 0.09
+
+
+# --- Avoided-T&D co-benefit credit (round 4) ---
+
+
+def test_co_benefit_adjusted_lcoe_subtracts_credit():
+    result = co_benefit_adjusted_lcoe(6.40)
+    assert result["avoided_td_credit_usd_per_kWh"] == AVOIDED_TD_CREDIT_USD_PER_KWH
+    assert result["co_benefit_adjusted_lcoe_usd_per_kWh"] == pytest.approx(6.40 - AVOIDED_TD_CREDIT_USD_PER_KWH)
+
+
+def test_co_benefit_adjusted_lcoe_never_goes_negative():
+    result = co_benefit_adjusted_lcoe(0.01)  # credit (0.02) exceeds raw LCOE
+    assert result["co_benefit_adjusted_lcoe_usd_per_kWh"] == 0.0
+
+
+def test_co_benefit_adjusted_lcoe_reports_small_pct_offset_at_multi_dollar_scale():
+    # The honest round-4 co-benefit finding: at CHORUS-SGH-1's actual
+    # multi-dollar/kWh LCOE scale, the (real, citable) avoided-T&D credit
+    # offsets only a tiny fraction of the raw number.
+    result = co_benefit_adjusted_lcoe(6.40)
+    assert result["pct_of_raw_lcoe_offset"] < 1.0  # well under 1% at this scale
+
+
+def test_co_benefit_adjusted_lcoe_offsets_larger_share_at_near_competitive_scale():
+    # At a much lower (near-competitive) raw LCOE, the same fixed credit
+    # is a much larger relative share -- consistent with it being a fixed
+    # $/kWh offset, not a percentage discount.
+    high_scale = co_benefit_adjusted_lcoe(6.40)
+    low_scale = co_benefit_adjusted_lcoe(0.30)
+    assert low_scale["pct_of_raw_lcoe_offset"] > high_scale["pct_of_raw_lcoe_offset"]
