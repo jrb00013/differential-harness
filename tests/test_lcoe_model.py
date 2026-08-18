@@ -13,6 +13,13 @@ from __future__ import annotations
 import pytest
 
 from scripts.lcoe_model import (
+    MEMBRANE_LIFE_CEILING_YEARS,
+    POWER_DENSITY_CEILING_W_M2,
+    breakeven_report,
+    solve_breakeven_membrane_cost,
+    solve_breakeven_membrane_life,
+    solve_breakeven_power_density,
+
     BOP_COST_HIGH_USD,
     MEMBRANE_COST_HIGH_USD_M2,
     capital_recovery_factor,
@@ -89,3 +96,75 @@ def test_sensitivity_sweep_optimistic_cost_beats_conservative_cost_same_density(
     optimistic = by_key[("practical", "optimistic")]
     conservative = by_key[("practical", "conservative")]
     assert optimistic["lcoe_usd_per_kWh"] < conservative["lcoe_usd_per_kWh"]
+
+
+# --- Breakeven sensitivity solvers (round 4) ---
+
+
+def test_solve_breakeven_power_density_round_trips_with_compute_lcoe():
+    target = 6.4
+    result = solve_breakeven_power_density(target, P_target_W=1000.0)
+    assert result.plausible is True
+    assert result.solved_value is not None
+    check = compute_lcoe(P_target_W=1000.0, P_density_W_m2=result.solved_value)
+    assert check.lcoe_usd_per_kWh == pytest.approx(target, rel=1e-3)
+
+
+def test_solve_breakeven_power_density_flags_implausible_when_beyond_ceiling():
+    # $2/kWh with default (conservative) costs requires >60 W/m^2 -- beyond
+    # the lab-hypersaline ceiling.
+    result = solve_breakeven_power_density(2.0, P_target_W=1000.0)
+    assert result.solved_value is not None
+    assert result.solved_value > POWER_DENSITY_CEILING_W_M2
+    assert result.plausible is False
+    assert "EXCEEDS" in result.verdict
+
+
+def test_solve_breakeven_power_density_reports_unreachable_for_solar_benchmark():
+    # Lazard's solar/wind upper bound ($0.09/kWh) is not reachable via
+    # power density alone even at 4x the lab-hypersaline ceiling.
+    result = solve_breakeven_power_density(0.09, P_target_W=1000.0)
+    assert result.solved_value is None
+    assert result.plausible is False
+    assert "UNREACHABLE" in result.verdict
+
+
+def test_solve_breakeven_membrane_cost_round_trips():
+    baseline = compute_lcoe(P_target_W=1000.0, P_density_W_m2=8.0)
+    result = solve_breakeven_membrane_cost(baseline.lcoe_usd_per_kWh, P_target_W=1000.0, P_density_W_m2=8.0)
+    assert result.solved_value == pytest.approx(150.0, rel=1e-2)  # default membrane cost used by compute_lcoe
+
+
+def test_solve_breakeven_membrane_cost_implausible_at_zero_floor():
+    result = solve_breakeven_membrane_cost(0.09, P_target_W=1000.0)
+    assert result.solved_value is None
+    assert result.plausible is False
+
+
+def test_solve_breakeven_membrane_life_round_trips():
+    baseline = compute_lcoe(P_target_W=1000.0, membrane_life_years=5.0)
+    result = solve_breakeven_membrane_life(baseline.lcoe_usd_per_kWh, P_target_W=1000.0)
+    assert result.solved_value == pytest.approx(5.0, rel=1e-2)
+
+
+def test_solve_breakeven_membrane_life_implausible_or_unreachable_for_hard_target():
+    # At $2/kWh, membrane life alone is far from the binding constraint
+    # (BOP capex dominates at this scale) -- this may resolve as either
+    # "requires an implausibly long life" or fully unreachable; either
+    # way it must NOT be reported as plausible.
+    result = solve_breakeven_membrane_life(2.0, P_target_W=1000.0)
+    assert result.plausible is False
+    if result.solved_value is not None:
+        assert result.solved_value > MEMBRANE_LIFE_CEILING_YEARS
+
+
+def test_breakeven_report_states_no_plausible_path_for_solar_benchmark():
+    report = breakeven_report(0.09, P_target_W=1000.0)
+    assert report["any_single_parameter_plausible"] is False
+    assert "NO single-parameter change" in report["summary"]
+    assert set(report["results"].keys()) == {"power_density", "membrane_cost", "membrane_life"}
+
+
+def test_breakeven_report_finds_plausible_path_for_a_reachable_target():
+    report = breakeven_report(6.4, P_target_W=1000.0)
+    assert report["any_single_parameter_plausible"] is True

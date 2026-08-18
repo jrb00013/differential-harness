@@ -213,6 +213,253 @@ def compute_lcoe(
     )
 
 
+def _bisect_monotonic_decreasing(
+    f,
+    target: float,
+    lo: float,
+    hi: float,
+    *,
+    tol: float = 1e-6,
+    max_iter: int = 200,
+) -> float | None:
+    """Find x in [lo, hi] such that f(x) == target, given f is monotonically
+    DECREASING in x (e.g. LCOE decreases as power density or membrane life
+    increases). Returns None if target is not bracketed by [f(hi), f(lo)]
+    (i.e. unreachable within the search range even at its most favorable
+    endpoint)."""
+    f_lo, f_hi = f(lo), f(hi)
+    # decreasing f: f_lo should be >= target >= f_hi for target to be bracketed
+    if not (f_hi <= target <= f_lo):
+        return None
+    for _ in range(max_iter):
+        mid = 0.5 * (lo + hi)
+        f_mid = f(mid)
+        if abs(f_mid - target) < tol * max(abs(target), 1.0):
+            return mid
+        if f_mid > target:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
+
+
+def _bisect_monotonic_increasing(
+    f,
+    target: float,
+    lo: float,
+    hi: float,
+    *,
+    tol: float = 1e-6,
+    max_iter: int = 200,
+) -> float | None:
+    """Same as _bisect_monotonic_decreasing but for f monotonically
+    INCREASING in x (e.g. LCOE increases with membrane cost)."""
+    f_lo, f_hi = f(lo), f(hi)
+    if not (f_lo <= target <= f_hi):
+        return None
+    for _ in range(max_iter):
+        mid = 0.5 * (lo + hi)
+        f_mid = f(mid)
+        if abs(f_mid - target) < tol * max(abs(target), 1.0):
+            return mid
+        if f_mid < target:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
+
+
+# Physical/practical ceilings used to judge whether a breakeven solution is
+# plausible, all sourced from docs/math/REAL_WORLD_DATA.md:
+#   "Lab hypersaline, high P | 25-60 | Not sidestream default | ES&T Lett.
+#   McCutcheon et al." -- the highest areal power density reported ANYWHERE
+#   in the PRO literature this repo has anchored, under non-representative
+#   lab conditions (not a sidestream/bench design point).
+POWER_DENSITY_CEILING_W_M2 = 60.0
+# A membrane cost of exactly $0/m^2 is the trivial floor; treated as the
+# search floor rather than claiming anything below it is meaningful.
+MEMBRANE_COST_FLOOR_USD_M2 = 0.0
+# An arbitrarily long membrane life is not physically meaningless the way
+# negative cost or superluminal density would be, but industrial RO/FO
+# membranes are not documented anywhere in the public literature lasting
+# beyond ~10-15 years even in favorable conditions before support-layer
+# compaction/aging dominates; used here as a practical (not hard-physical)
+# ceiling.
+MEMBRANE_LIFE_CEILING_YEARS = 15.0
+
+
+@dataclass
+class BreakevenResult:
+    parameter: str
+    target_lcoe_usd_per_kWh: float
+    solved_value: float | None
+    ceiling: float
+    plausible: bool
+    verdict: str
+
+
+def solve_breakeven_power_density(
+    target_lcoe_usd_per_kWh: float,
+    P_target_W: float = 1000.0,
+    **lcoe_kwargs,
+) -> BreakevenResult:
+    """What power density (W/m^2), holding all other lcoe_kwargs fixed,
+    would be needed to hit target_lcoe_usd_per_kWh? LCOE decreases
+    monotonically as power density increases (fewer skid units needed
+    for the same target power, so BOP capex drops faster than net energy
+    drops), so this is a decreasing-function bisection."""
+
+    def lcoe_at(density: float) -> float:
+        return compute_lcoe(P_target_W=P_target_W, P_density_W_m2=density, **lcoe_kwargs).lcoe_usd_per_kWh
+
+    solved = _bisect_monotonic_decreasing(
+        lcoe_at, target_lcoe_usd_per_kWh, lo=0.5, hi=POWER_DENSITY_CEILING_W_M2 * 4
+    )
+    plausible = solved is not None and solved <= POWER_DENSITY_CEILING_W_M2
+    if solved is None:
+        verdict = (
+            f"UNREACHABLE: even at {POWER_DENSITY_CEILING_W_M2 * 4:.0f} W/m^2 "
+            f"(far beyond any reported PRO density), LCOE does not reach "
+            f"${target_lcoe_usd_per_kWh:.3f}/kWh with these cost assumptions."
+        )
+    elif plausible:
+        verdict = (
+            f"PLAUSIBLE: {solved:.2f} W/m^2 is within the {POWER_DENSITY_CEILING_W_M2:.0f} "
+            f"W/m^2 lab-hypersaline ceiling reported in docs/math/REAL_WORLD_DATA.md."
+        )
+    else:
+        verdict = (
+            f"IMPLAUSIBLE: reaching ${target_lcoe_usd_per_kWh:.3f}/kWh requires "
+            f"{solved:.2f} W/m^2, which EXCEEDS the {POWER_DENSITY_CEILING_W_M2:.0f} "
+            f"W/m^2 highest lab-reported PRO density in the public literature this "
+            f"repo has anchored."
+        )
+    return BreakevenResult(
+        parameter="P_density_W_m2",
+        target_lcoe_usd_per_kWh=target_lcoe_usd_per_kWh,
+        solved_value=solved,
+        ceiling=POWER_DENSITY_CEILING_W_M2,
+        plausible=plausible,
+        verdict=verdict,
+    )
+
+
+def solve_breakeven_membrane_cost(
+    target_lcoe_usd_per_kWh: float,
+    P_target_W: float = 1000.0,
+    **lcoe_kwargs,
+) -> BreakevenResult:
+    """What membrane $/m^2, holding all else fixed, would hit the target?
+    LCOE increases monotonically with membrane cost, so any positive
+    target below the cost-free LCOE floor is reachable by construction
+    (membrane cost -> 0) -- the interesting question is whether the
+    REQUIRED value is a plausible cost at all (it's always plausible in
+    the trivial sense that $0/m^2 is achievable in the limit only, i.e.
+    free -- flagged as implausible if the solved cost is at or below the
+    floor, meaning even a FREE membrane would not reach the target)."""
+
+    def lcoe_at(cost: float) -> float:
+        return compute_lcoe(P_target_W=P_target_W, membrane_cost_usd_m2=cost, **lcoe_kwargs).lcoe_usd_per_kWh
+
+    solved = _bisect_monotonic_increasing(
+        lcoe_at, target_lcoe_usd_per_kWh, lo=MEMBRANE_COST_FLOOR_USD_M2, hi=MEMBRANE_COST_HIGH_USD_M2 * 10
+    )
+    plausible = solved is not None and solved > MEMBRANE_COST_FLOOR_USD_M2
+    if solved is None:
+        verdict = (
+            f"UNREACHABLE: even at ${MEMBRANE_COST_HIGH_USD_M2 * 10:.0f}/m^2, LCOE does "
+            f"not reach ${target_lcoe_usd_per_kWh:.3f}/kWh -- membrane cost is not the "
+            f"binding constraint here."
+        )
+    elif plausible:
+        verdict = f"PLAUSIBLE: membrane cost would need to be ${solved:.2f}/m^2."
+    else:
+        verdict = (
+            f"IMPLAUSIBLE: reaching ${target_lcoe_usd_per_kWh:.3f}/kWh requires a "
+            f"membrane cost at or below the $0/m^2 floor -- membrane cost alone "
+            f"cannot close this gap regardless of how cheap the membrane becomes."
+        )
+    return BreakevenResult(
+        parameter="membrane_cost_usd_m2",
+        target_lcoe_usd_per_kWh=target_lcoe_usd_per_kWh,
+        solved_value=solved,
+        ceiling=MEMBRANE_COST_FLOOR_USD_M2,
+        plausible=plausible,
+        verdict=verdict,
+    )
+
+
+def solve_breakeven_membrane_life(
+    target_lcoe_usd_per_kWh: float,
+    P_target_W: float = 1000.0,
+    **lcoe_kwargs,
+) -> BreakevenResult:
+    """What membrane replacement life (years), holding all else fixed,
+    would hit the target? LCOE decreases as life increases (annualized
+    membrane capex shrinks), so this is a decreasing-function bisection,
+    checked against a practical (not hard-physical) ceiling."""
+
+    def lcoe_at(life: float) -> float:
+        return compute_lcoe(P_target_W=P_target_W, membrane_life_years=life, **lcoe_kwargs).lcoe_usd_per_kWh
+
+    solved = _bisect_monotonic_decreasing(
+        lcoe_at, target_lcoe_usd_per_kWh, lo=0.5, hi=MEMBRANE_LIFE_CEILING_YEARS * 10
+    )
+    plausible = solved is not None and solved <= MEMBRANE_LIFE_CEILING_YEARS
+    if solved is None:
+        verdict = (
+            f"UNREACHABLE: even at a {MEMBRANE_LIFE_CEILING_YEARS * 10:.0f}-year membrane "
+            f"life, LCOE does not reach ${target_lcoe_usd_per_kWh:.3f}/kWh -- membrane "
+            f"life is not the binding constraint here."
+        )
+    elif plausible:
+        verdict = (
+            f"PLAUSIBLE: a {solved:.1f}-year membrane life is within the "
+            f"{MEMBRANE_LIFE_CEILING_YEARS:.0f}-year practical ceiling for industrial "
+            f"RO/FO membranes."
+        )
+    else:
+        verdict = (
+            f"IMPLAUSIBLE: reaching ${target_lcoe_usd_per_kWh:.3f}/kWh requires a "
+            f"{solved:.1f}-year membrane life, EXCEEDING the "
+            f"{MEMBRANE_LIFE_CEILING_YEARS:.0f}-year practical ceiling documented for "
+            f"industrial RO/FO membranes."
+        )
+    return BreakevenResult(
+        parameter="membrane_life_years",
+        target_lcoe_usd_per_kWh=target_lcoe_usd_per_kWh,
+        solved_value=solved,
+        ceiling=MEMBRANE_LIFE_CEILING_YEARS,
+        plausible=plausible,
+        verdict=verdict,
+    )
+
+
+def breakeven_report(target_lcoe_usd_per_kWh: float, P_target_W: float = 1000.0, **lcoe_kwargs) -> dict:
+    """Run all three single-parameter breakeven solvers against one target
+    and summarize whether ANY plausible single-parameter path exists."""
+    results = {
+        "power_density": solve_breakeven_power_density(target_lcoe_usd_per_kWh, P_target_W, **lcoe_kwargs),
+        "membrane_cost": solve_breakeven_membrane_cost(target_lcoe_usd_per_kWh, P_target_W, **lcoe_kwargs),
+        "membrane_life": solve_breakeven_membrane_life(target_lcoe_usd_per_kWh, P_target_W, **lcoe_kwargs),
+    }
+    any_plausible = any(r.plausible for r in results.values())
+    return {
+        "target_lcoe_usd_per_kWh": target_lcoe_usd_per_kWh,
+        "results": {k: asdict(v) for k, v in results.items()},
+        "any_single_parameter_plausible": any_plausible,
+        "summary": (
+            "At least one single-parameter change stays within a known physical/"
+            "practical ceiling."
+            if any_plausible
+            else "NO single-parameter change (power density, membrane cost, or "
+            "membrane life alone) reaches this target within known physical/"
+            "practical ceilings -- closing this gap would require multiple "
+            "simultaneous improvements, not one lever."
+        ),
+    }
+
+
 def sensitivity_sweep(P_target_W: float = 50.0) -> list[dict]:
     """LCOE across the honest optimistic<->conservative bound combinations,
     for the sensitivity table in docs/ECONOMICS.md."""
