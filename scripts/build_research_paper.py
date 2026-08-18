@@ -31,6 +31,14 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+# Pull in pdf-genesis's font registration so this paper gets the same
+# embedded serif/sans typography (DejaVu Serif body + DejaVu Sans Bold
+# headings) as the rest of the pdf-genesis rendering pipeline, instead of
+# reportlab's unembedded Helvetica/Times core fonts.
+from pdf_genesis import fonts as pg_fonts
+
+pg_fonts.ensure_fonts_registered()
+
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from papers.paper_sections import (  # noqa: E402
@@ -66,7 +74,7 @@ from papers.paper_sections import (  # noqa: E402
 
 EXPORTS = ROOT / "exports"
 FIGURES = EXPORTS / "figures"
-OUT_PDF = ROOT / "papers" / "Black_2026_CHORUS_SGH1_PoC.pdf"
+OUT_PDF = ROOT / "papers" / "Black_White_2026_CHORUS_SGH1_PoC.pdf"
 
 
 class PaperBuilder:
@@ -113,44 +121,52 @@ class PaperBuilder:
 
     def _make_styles(self) -> dict:
         b = getSampleStyleSheet()
+        sans, sans_b = pg_fonts.FONT_SANS, pg_fonts.FONT_SANS_BOLD
+        serif, serif_i = pg_fonts.FONT_SERIF, pg_fonts.FONT_SERIF_ITALIC
         return {
             "title": ParagraphStyle(
-                "T", parent=b["Title"], fontSize=16, leading=20, alignment=TA_CENTER,
+                "T", parent=b["Title"], fontName=sans_b, fontSize=16, leading=20, alignment=TA_CENTER,
                 spaceAfter=12, textColor=colors.HexColor("#1a365d"),
             ),
             "subtitle": ParagraphStyle(
-                "ST", parent=b["Normal"], fontSize=10, leading=13, alignment=TA_CENTER,
+                "ST", parent=b["Normal"], fontName=serif_i, fontSize=10, leading=13, alignment=TA_CENTER,
                 spaceAfter=10, textColor=colors.HexColor("#4a5568"), leftIndent=32, rightIndent=32,
             ),
-            "author": ParagraphStyle("A", parent=b["Normal"], fontSize=12, alignment=TA_CENTER, spaceAfter=4),
+            "author": ParagraphStyle(
+                "A", parent=b["Normal"], fontName=sans_b, fontSize=12, alignment=TA_CENTER, spaceAfter=4
+            ),
             "affil": ParagraphStyle(
-                "AF", parent=b["Normal"], fontSize=9, alignment=TA_CENTER,
+                "AF", parent=b["Normal"], fontName=serif_i, fontSize=9, alignment=TA_CENTER,
                 textColor=colors.grey, spaceAfter=8,
             ),
             "h1": ParagraphStyle(
-                "H1", parent=b["Heading1"], fontSize=13, leading=16, spaceBefore=16,
+                "H1", parent=b["Heading1"], fontName=sans_b, fontSize=13, leading=16, spaceBefore=16,
                 spaceAfter=8, textColor=colors.HexColor("#1a365d"), keepWithNext=True,
             ),
             "h2": ParagraphStyle(
-                "H2", parent=b["Heading2"], fontSize=11.5, leading=14, spaceBefore=12,
+                "H2", parent=b["Heading2"], fontName=sans_b, fontSize=11.5, leading=14, spaceBefore=12,
                 spaceAfter=6, textColor=colors.HexColor("#2c5282"), keepWithNext=True,
             ),
             "h3": ParagraphStyle(
-                "H3", parent=b["Heading3"], fontSize=10.5, leading=13, spaceBefore=8,
+                "H3", parent=b["Heading3"], fontName=sans_b, fontSize=10.5, leading=13, spaceBefore=8,
                 spaceAfter=4, textColor=colors.HexColor("#2d3748"), keepWithNext=True,
             ),
             "body": ParagraphStyle(
-                "B", parent=b["BodyText"], fontSize=10, leading=14, alignment=TA_JUSTIFY, spaceAfter=8,
+                "B", parent=b["BodyText"], fontName=serif, fontSize=10, leading=14,
+                alignment=TA_JUSTIFY, spaceAfter=8,
             ),
             "abstract": ParagraphStyle(
-                "AB", parent=b["BodyText"], fontSize=10, leading=14, alignment=TA_JUSTIFY,
+                "AB", parent=b["BodyText"], fontName=serif, fontSize=10, leading=14, alignment=TA_JUSTIFY,
                 leftIndent=24, rightIndent=24, spaceAfter=10,
             ),
             "caption": ParagraphStyle(
-                "CAP", parent=b["BodyText"], fontSize=8.5, leading=11, alignment=TA_CENTER,
+                "CAP", parent=b["BodyText"], fontName=serif_i, fontSize=8.5, leading=11, alignment=TA_CENTER,
                 textColor=colors.HexColor("#4a5568"), spaceBefore=3, spaceAfter=12,
             ),
-            "toc": ParagraphStyle("TOC", parent=b["Normal"], fontSize=9.5, leading=13, leftIndent=16, spaceAfter=3),
+            "toc": ParagraphStyle(
+                "TOC", parent=b["Normal"], fontName=serif, fontSize=9.5, leading=13,
+                leftIndent=16, spaceAfter=3,
+            ),
             "eq": ParagraphStyle(
                 "EQ", parent=b["Code"], fontSize=9.5, leading=12, alignment=TA_CENTER,
                 fontName="Courier", textColor=colors.HexColor("#1a202c"),
@@ -202,7 +218,8 @@ class PaperBuilder:
         t.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a365d")),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTNAME", (0, 0), (-1, 0), pg_fonts.FONT_SANS_BOLD),
+            ("FONTNAME", (0, 1), (-1, -1), pg_fonts.FONT_SERIF),
             ("FONTSIZE", (0, 0), (-1, -1), 8.5),
             ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#cbd5e0")),
             ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f7fafc")]),
@@ -846,15 +863,31 @@ class PaperBuilder:
             bottomMargin=0.8 * inch,
         )
 
-        def footer(canvas, doc):
+        def header_footer(canvas, doc):
             canvas.saveState()
-            canvas.setFont("Helvetica", 8)
+            # Running header (skipped on the title page).
+            if doc.page > 1:
+                header_y = letter[1] - 0.55 * inch
+                canvas.setStrokeColor(colors.HexColor("#a0aec0"))
+                canvas.setLineWidth(0.5)
+                canvas.line(0.85 * inch, header_y - 0.08 * inch, 7.65 * inch, header_y - 0.08 * inch)
+                canvas.setFont(pg_fonts.FONT_SANS, 8)
+                canvas.setFillColor(colors.HexColor("#4a5568"))
+                canvas.drawString(0.85 * inch, header_y, TITLE_SHORT)
+                canvas.drawRightString(7.65 * inch, header_y, "CHORUS Research Program")
+
+            # Footer with page number.
+            canvas.setStrokeColor(colors.HexColor("#a0aec0"))
+            canvas.setLineWidth(0.5)
+            canvas.line(0.85 * inch, 0.58 * inch, 7.65 * inch, 0.58 * inch)
+            canvas.setFont(pg_fonts.FONT_SERIF, 8)
+            canvas.setFillColor(colors.HexColor("#4a5568"))
             canvas.drawString(0.85 * inch, 0.42 * inch,
                               "Black & White (2026) · CHORUS-SGH-1 · differential-harness")
             canvas.drawRightString(7.65 * inch, 0.42 * inch, f"Page {doc.page}")
             canvas.restoreState()
 
-        doc.build(self.story, onFirstPage=footer, onLaterPages=footer)
+        doc.build(self.story, onFirstPage=header_footer, onLaterPages=header_footer)
         return OUT_PDF
 
 

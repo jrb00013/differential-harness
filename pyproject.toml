@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-paper = ["reportlab>=4.0"]
+paper = ["reportlab>=4.0", "pdf-genesis @ file:///home/joeblack/Documents/pdf-genesis"]
 dev = ["pytest>=8.0"]
 
 [tool.setuptools.packages.find]
