@@ -13,12 +13,16 @@ from __future__ import annotations
 import pytest
 
 from scripts.lcoe_model import (
+    LEARNING_RATE_SOLAR_ANALOG,
+    LEARNING_RATE_TYPICAL,
     MEMBRANE_LIFE_CEILING_YEARS,
     POWER_DENSITY_CEILING_W_M2,
     breakeven_report,
+    learning_curve_cost,
     solve_breakeven_membrane_cost,
     solve_breakeven_membrane_life,
     solve_breakeven_power_density,
+    volume_cost_projection,
 
     BOP_COST_HIGH_USD,
     MEMBRANE_COST_HIGH_USD_M2,
@@ -168,3 +172,56 @@ def test_breakeven_report_states_no_plausible_path_for_solar_benchmark():
 def test_breakeven_report_finds_plausible_path_for_a_reachable_target():
     report = breakeven_report(6.4, P_target_W=1000.0)
     assert report["any_single_parameter_plausible"] is True
+
+
+# --- Learning-curve / manufacturing-volume model (round 4) ---
+
+
+def test_learning_curve_cost_matches_hand_computed_value_at_one_doubling():
+    # One doubling (volume 2 vs baseline 1) at a 20% learning rate should
+    # give exactly cost * 0.80, by definition of "20% decline per doubling."
+    cost = learning_curve_cost(100.0, baseline_volume=1, target_volume=2, learning_rate=0.20)
+    assert cost == pytest.approx(80.0, rel=1e-9)
+
+
+def test_learning_curve_cost_matches_hand_computed_value_at_ten_doublings():
+    # 2^10 = 1024x volume at a 15% learning rate -> cost * 0.85**10
+    cost = learning_curve_cost(100.0, baseline_volume=1, target_volume=1024, learning_rate=0.15)
+    assert cost == pytest.approx(100.0 * 0.85**10, rel=1e-9)
+
+
+def test_learning_curve_cost_rejects_nonpositive_volumes():
+    with pytest.raises(ValueError):
+        learning_curve_cost(100.0, baseline_volume=0, target_volume=10, learning_rate=0.15)
+    with pytest.raises(ValueError):
+        learning_curve_cost(100.0, baseline_volume=1, target_volume=-5, learning_rate=0.15)
+
+
+def test_learning_curve_cost_higher_learning_rate_gives_lower_cost_at_same_volume():
+    low_rate_cost = learning_curve_cost(100.0, 1, 1000, LEARNING_RATE_TYPICAL)
+    high_rate_cost = learning_curve_cost(100.0, 1, 1000, LEARNING_RATE_SOLAR_ANALOG)
+    assert high_rate_cost < low_rate_cost
+
+
+def test_volume_cost_projection_costs_decrease_monotonically_with_volume():
+    rows = volume_cost_projection(volumes=(1, 10, 100, 1000))
+    by_scenario: dict[str, list[dict]] = {}
+    for row in rows:
+        by_scenario.setdefault(row["learning_rate_scenario"], []).append(row)
+
+    for scenario_rows in by_scenario.values():
+        scenario_rows.sort(key=lambda r: r["cumulative_volume"])
+        costs = [r["bop_cost_usd_per_skid"] for r in scenario_rows]
+        assert costs == sorted(costs, reverse=True)
+        lcoes = [r["lcoe_usd_per_kWh_at_1kW_practical_density"] for r in scenario_rows]
+        assert lcoes == sorted(lcoes, reverse=True)
+
+
+def test_volume_cost_projection_even_at_1000x_solar_analog_rate_stays_above_solar_wind():
+    # The honest round-4 finding: even 1000x cumulative volume at the most
+    # optimistic (solar-analog) learning rate, at PRACTICAL (not lab-ceiling)
+    # power density, does not reach Lazard's solar/wind LCOE range
+    # ($0.03-0.09/kWh) -- manufacturing scale alone does not close the gap.
+    rows = volume_cost_projection(volumes=(1000,))
+    solar_analog_1000x = next(r for r in rows if r["learning_rate_scenario"] == "solar_analog_20pct")
+    assert solar_analog_1000x["lcoe_usd_per_kWh_at_1kW_practical_density"] > 0.09

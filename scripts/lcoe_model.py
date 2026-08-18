@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -458,6 +459,82 @@ def breakeven_report(target_lcoe_usd_per_kWh: float, P_target_W: float = 1000.0,
             "simultaneous improvements, not one lever."
         ),
     }
+
+
+# --- Manufacturing / volume learning-curve model (Wright's law) ---
+#
+# Wright's law: cost declines by a constant fraction (the "learning rate")
+# for every DOUBLING of cumulative production volume:
+#     cost(N) = cost(N0) * (N / N0) ** b,  b = log2(1 - learning_rate)
+#
+# Learning rates by technology, from public research (see
+# docs/ECONOMICS.md Sources for full citations):
+#   - Solar PV: ~20-24% per doubling (sustained over 4+ decades).
+#   - Wright's own original 1936 aircraft-manufacturing study: ~15% per
+#     doubling.
+#   - General range cited across semiconductors/batteries/solar/genome
+#     sequencing: 20-30%.
+#   - No PRO/FO-membrane-specific or small-batch-BOP-hardware-specific
+#     learning rate was found in the public literature -- this is a real,
+#     stated gap, not filled in with an invented number. Three scenarios
+#     are offered instead of one invented "best" rate:
+LEARNING_RATE_CONSERVATIVE = 0.10  # simple/mature hardware analog (low end of general range)
+LEARNING_RATE_TYPICAL = 0.15  # Wright's original aircraft-manufacturing rate
+LEARNING_RATE_SOLAR_ANALOG = 0.20  # solar PV's sustained real-world rate, optimistic analog
+
+
+def learning_curve_cost(
+    baseline_cost: float,
+    baseline_volume: float,
+    target_volume: float,
+    learning_rate: float,
+) -> float:
+    """Wright's law: cost at target_volume given a baseline cost/volume and
+    a per-doubling learning rate (e.g. 0.20 for 20% cost decline per
+    doubling of cumulative units produced)."""
+    if baseline_volume <= 0 or target_volume <= 0:
+        raise ValueError("volumes must be positive")
+    b = math.log2(1.0 - learning_rate)
+    return baseline_cost * (target_volume / baseline_volume) ** b
+
+
+def volume_cost_projection(
+    baseline_bop_cost_usd: float = BOP_COST_HIGH_USD,
+    baseline_membrane_cost_usd_m2: float = MEMBRANE_COST_HIGH_USD_M2,
+    volumes: tuple[int, ...] = (1, 10, 100, 1000),
+) -> list[dict]:
+    """Project BOP and membrane cost at 10x/100x/1000x cumulative unit
+    volume (relative to a volume-1 prototype baseline, i.e. this repo's
+    own bench BOM cost), across the three learning-rate scenarios above.
+    This answers 'could this get cheaper with scale' honestly -- it is a
+    projection grounded in real per-technology learning rates, not a
+    claim that CHORUS-SGH-1 specifically will follow any of them."""
+    rows = []
+    for label, rate in (
+        ("conservative_10pct", LEARNING_RATE_CONSERVATIVE),
+        ("typical_15pct", LEARNING_RATE_TYPICAL),
+        ("solar_analog_20pct", LEARNING_RATE_SOLAR_ANALOG),
+    ):
+        for volume in volumes:
+            bop_cost = learning_curve_cost(baseline_bop_cost_usd, 1, volume, rate)
+            mem_cost = learning_curve_cost(baseline_membrane_cost_usd_m2, 1, volume, rate)
+            lcoe_result = compute_lcoe(
+                P_target_W=1000.0,
+                P_density_W_m2=8.0,
+                bop_cost_usd_per_skid=bop_cost,
+                membrane_cost_usd_m2=mem_cost,
+            )
+            rows.append(
+                {
+                    "learning_rate_scenario": label,
+                    "learning_rate": rate,
+                    "cumulative_volume": volume,
+                    "bop_cost_usd_per_skid": bop_cost,
+                    "membrane_cost_usd_m2": mem_cost,
+                    "lcoe_usd_per_kWh_at_1kW_practical_density": lcoe_result.lcoe_usd_per_kWh,
+                }
+            )
+    return rows
 
 
 def sensitivity_sweep(P_target_W: float = 50.0) -> list[dict]:
