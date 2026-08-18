@@ -48,7 +48,9 @@
         "cavity_d": "35"
       },
       "uses_generated_constants": true,
-      "lines": 42
+      "lines": 42,
+      "geometry_check": "skipped: openscad binary not found on PATH",
+      "watertight": null
     },
     {
       "file": "chorus_skid_enclosure.scad",
@@ -61,7 +63,9 @@
       ],
       "local_parameters": {},
       "uses_generated_constants": true,
-      "lines": 30
+      "lines": 30,
+      "geometry_check": "skipped: openscad binary not found on PATH",
+      "watertight": null
     },
     {
       "file": "sgh1_assembly.scad",
@@ -75,7 +79,9 @@
         "z0": "120"
       },
       "uses_generated_constants": true,
-      "lines": 35
+      "lines": 35,
+      "geometry_check": "skipped: openscad binary not found on PATH",
+      "watertight": null
     },
     {
       "file": "sgh1_brine_tank_adapter.scad",
@@ -85,7 +91,9 @@
       ],
       "local_parameters": {},
       "uses_generated_constants": false,
-      "lines": 12
+      "lines": 12,
+      "geometry_check": "skipped: openscad binary not found on PATH",
+      "watertight": null
     },
     {
       "file": "sgh1_drip_tray.scad",
@@ -97,7 +105,9 @@
       ],
       "local_parameters": {},
       "uses_generated_constants": true,
-      "lines": 12
+      "lines": 12,
+      "geometry_check": "skipped: openscad binary not found on PATH",
+      "watertight": null
     },
     {
       "file": "sgh1_end_cap.scad",
@@ -113,7 +123,9 @@
         "cap_t": "18"
       },
       "uses_generated_constants": true,
-      "lines": 34
+      "lines": 34,
+      "geometry_check": "skipped: openscad binary not found on PATH",
+      "watertight": null
     },
     {
       "file": "sgh1_exploded_assembly.scad",
@@ -127,7 +139,9 @@
         "y0": "frame_W/2"
       },
       "uses_generated_constants": true,
-      "lines": 29
+      "lines": 29,
+      "geometry_check": "skipped: openscad binary not found on PATH",
+      "watertight": null
     },
     {
       "file": "sgh1_feed_tank_adapter.scad",
@@ -137,7 +151,9 @@
       ],
       "local_parameters": {},
       "uses_generated_constants": false,
-      "lines": 12
+      "lines": 12,
+      "geometry_check": "skipped: openscad binary not found on PATH",
+      "watertight": null
     },
     {
       "file": "sgh1_flange_adapter.scad",
@@ -147,7 +163,9 @@
       ],
       "local_parameters": {},
       "uses_generated_constants": false,
-      "lines": 11
+      "lines": 11,
+      "geometry_check": "skipped: openscad binary not found on PATH",
+      "watertight": null
     },
     {
       "file": "sgh1_manifold_draw.scad",
@@ -161,7 +179,9 @@
       ],
       "local_parameters": {},
       "uses_generated_constants": true,
-      "lines": 38
+      "lines": 38,
+      "geometry_check": "skipped: openscad binary not found on PATH",
+      "watertight": null
     },
     {
       "file": "sgh1_manifold_feed.scad",
@@ -175,7 +195,9 @@
       ],
       "local_parameters": {},
       "uses_generated_constants": true,
-      "lines": 34
+      "lines": 34,
+      "geometry_check": "skipped: openscad binary not found on PATH",
+      "watertight": null
     },
     {
       "file": "sgh1_membrane_housing.scad",
@@ -191,7 +213,9 @@
         "wall": "10"
       },
       "uses_generated_constants": true,
-      "lines": 27
+      "lines": 27,
+      "geometry_check": "skipped: openscad binary not found on PATH",
+      "watertight": null
     },
     {
       "file": "sgh1_membrane_plate.scad",
@@ -210,7 +234,9 @@
         "margin": "15"
       },
       "uses_generated_constants": true,
-      "lines": 35
+      "lines": 35,
+      "geometry_check": "skipped: openscad binary not found on PATH",
+      "watertight": null
     },
     {
       "file": "sgh1_mount_rail.scad",
@@ -222,7 +248,9 @@
       ],
       "local_parameters": {},
       "uses_generated_constants": true,
-      "lines": 8
+      "lines": 8,
+      "geometry_check": "skipped: openscad binary not found on PATH",
+      "watertight": null
     },
     {
       "file": "sgh1_pressure_vessel_ring.scad",
@@ -234,7 +262,9 @@
       ],
       "local_parameters": {},
       "uses_generated_constants": true,
-      "lines": 11
+      "lines": 11,
+      "geometry_check": "skipped: openscad binary not found on PATH",
+      "watertight": null
     },
     {
       "file": "sgh1_pump_mount.scad",
@@ -247,7 +277,9 @@
       ],
       "local_parameters": {},
       "uses_generated_constants": true,
-      "lines": 22
+      "lines": 22,
+      "geometry_check": "skipped: openscad binary not found on PATH",
+      "watertight": null
     },
     {
       "file": "sgh1_px_module.scad",
@@ -260,7 +292,9 @@
       ],
       "local_parameters": {},
       "uses_generated_constants": true,
-      "lines": 18
+      "lines": 18,
+      "geometry_check": "skipped: openscad binary not found on PATH",
+      "watertight": null
     },
     {
       "file": "sgh1_red_cartridge_v2.scad",
@@ -272,7 +306,9 @@
       ],
       "local_parameters": {},
       "uses_generated_constants": true,
-      "lines": 15
+      "lines": 15,
+      "geometry_check": "skipped: openscad binary not found on PATH",
+      "watertight": null
     },
     {
       "file": "sgh1_relief_valve_block.scad",
@@ -284,7 +320,9 @@
       ],
       "local_parameters": {},
       "uses_generated_constants": true,
-      "lines": 14
+      "lines": 14,
+      "geometry_check": "skipped: openscad binary not found on PATH",
+      "watertight": null
     },
     {
       "file": "sgh1_sensor_bracket.scad",
@@ -296,7 +334,9 @@
       ],
       "local_parameters": {},
       "uses_generated_constants": true,
-      "lines": 21
+      "lines": 21,
+      "geometry_check": "skipped: openscad binary not found on PATH",
+      "watertight": null
     },
     {
       "file": "sgh1_skid_frame.scad",
@@ -313,7 +353,9 @@
         "wall_t": "3"
       },
       "uses_generated_constants": true,
-      "lines": 51
+      "lines": 51,
+      "geometry_check": "skipped: openscad binary not found on PATH",
+      "watertight": null
     },
     {
       "file": "sgh1_turbine_housing.scad",
@@ -325,7 +367,9 @@
       ],
       "local_parameters": {},
       "uses_generated_constants": true,
-      "lines": 16
+      "lines": 16,
+      "geometry_check": "skipped: openscad binary not found on PATH",
+      "watertight": null
     },
     {
       "file": "sgh1_us_mount_ring.scad",
@@ -335,12 +379,18 @@
       ],
       "local_parameters": {},
       "uses_generated_constants": false,
-      "lines": 9
+      "lines": 9,
+      "geometry_check": "skipped: openscad binary not found on PATH",
+      "watertight": null
     }
   ],
   "part_count": 23,
   "assembly_files": [
     "sgh1_assembly.scad",
     "sgh1_exploded_assembly.scad"
-  ]
+  ],
+  "openscad_binary_found": false,
+  "geometry_checked_count": 0,
+  "geometry_watertight_count": 0,
+  "geometry_check_note": "openscad CLI not found in this environment; per-part geometry_check is 'skipped' with an explicit reason rather than a silent pass. See docs/ROADMAP.md M3."
 }
