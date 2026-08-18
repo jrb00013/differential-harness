@@ -13,11 +13,13 @@ from __future__ import annotations
 import pytest
 
 from scripts.lcoe_model import (
+    AVOIDED_TD_CREDIT_USD_PER_KWH,
     LEARNING_RATE_SOLAR_ANALOG,
     LEARNING_RATE_TYPICAL,
     MEMBRANE_LIFE_CEILING_YEARS,
     POWER_DENSITY_CEILING_W_M2,
     breakeven_report,
+    co_benefit_adjusted_lcoe,
     learning_curve_cost,
     solve_breakeven_membrane_cost,
     solve_breakeven_membrane_life,
@@ -225,3 +227,34 @@ def test_volume_cost_projection_even_at_1000x_solar_analog_rate_stays_above_sola
     rows = volume_cost_projection(volumes=(1000,))
     solar_analog_1000x = next(r for r in rows if r["learning_rate_scenario"] == "solar_analog_20pct")
     assert solar_analog_1000x["lcoe_usd_per_kWh_at_1kW_practical_density"] > 0.09
+
+
+# --- Avoided-T&D co-benefit credit (round 4) ---
+
+
+def test_co_benefit_adjusted_lcoe_subtracts_credit():
+    result = co_benefit_adjusted_lcoe(6.40)
+    assert result["avoided_td_credit_usd_per_kWh"] == AVOIDED_TD_CREDIT_USD_PER_KWH
+    assert result["co_benefit_adjusted_lcoe_usd_per_kWh"] == pytest.approx(6.40 - AVOIDED_TD_CREDIT_USD_PER_KWH)
+
+
+def test_co_benefit_adjusted_lcoe_never_goes_negative():
+    result = co_benefit_adjusted_lcoe(0.01)  # credit (0.02) exceeds raw LCOE
+    assert result["co_benefit_adjusted_lcoe_usd_per_kWh"] == 0.0
+
+
+def test_co_benefit_adjusted_lcoe_reports_small_pct_offset_at_multi_dollar_scale():
+    # The honest round-4 co-benefit finding: at CHORUS-SGH-1's actual
+    # multi-dollar/kWh LCOE scale, the (real, citable) avoided-T&D credit
+    # offsets only a tiny fraction of the raw number.
+    result = co_benefit_adjusted_lcoe(6.40)
+    assert result["pct_of_raw_lcoe_offset"] < 1.0  # well under 1% at this scale
+
+
+def test_co_benefit_adjusted_lcoe_offsets_larger_share_at_near_competitive_scale():
+    # At a much lower (near-competitive) raw LCOE, the same fixed credit
+    # is a much larger relative share -- consistent with it being a fixed
+    # $/kWh offset, not a percentage discount.
+    high_scale = co_benefit_adjusted_lcoe(6.40)
+    low_scale = co_benefit_adjusted_lcoe(0.30)
+    assert low_scale["pct_of_raw_lcoe_offset"] > high_scale["pct_of_raw_lcoe_offset"]

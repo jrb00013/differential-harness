@@ -537,6 +537,60 @@ def volume_cost_projection(
     return rows
 
 
+# --- Value beyond raw $/kWh: avoided transmission & distribution credit ---
+#
+# A generator co-located AT the point of use (here, at a desalination
+# plant's own brine outfall or a coastal WWTP) avoids the transmission and
+# distribution (T&D) infrastructure cost a grid-delivered kWh normally
+# carries. Real utility avoided-cost studies quantify this: one published
+# analysis found avoided T&D capacity value of "at least 2.02 cents/kWh"
+# (avoided transmission 1.34 cents/kWh + avoided distribution 0.52
+# cents/kWh); a Pennsylvania T&D avoided-cost study found distribution
+# capacity deferral values of $100-200/kW-year in 2026 dollars. This
+# credit is REAL and citable but SMALL relative to the multi-dollar/kWh
+# gap found above -- reported here as an honest partial offset, not a
+# solution.
+AVOIDED_TD_CREDIT_USD_PER_KWH = 0.02
+
+
+def co_benefit_adjusted_lcoe(raw_lcoe_usd_per_kWh: float, avoided_td_credit_usd_per_kWh: float = AVOIDED_TD_CREDIT_USD_PER_KWH) -> dict:
+    """Apply the avoided-T&D credit as a partial offset against a raw LCOE
+    result, and report both the offset and how much of the solar/wind gap
+    it actually closes (honestly: not much, at multi-dollar/kWh raw
+    values) -- never presented as closing the underlying capex-driven
+    gap on its own.
+
+    NOTE on the "the brine is already flowing, so fuel is free" argument:
+    that is already fully reflected in compute_lcoe() -- there is no fuel
+    cost line item anywhere in the capex/opex model, because the
+    concentration-gradient "fuel" genuinely is free. That argument does
+    NOT provide an additional credit beyond what's already modeled; it
+    only explains why the capex/parasitics side of the ledger is the
+    entire story for this technology, which is precisely why sections
+    R4.1/R4.3 attack capex and power density rather than a fuel cost that
+    was never present as a line item in the first place.
+    """
+    adjusted = max(raw_lcoe_usd_per_kWh - avoided_td_credit_usd_per_kWh, 0.0)
+    pct_of_gap_closed = (
+        100.0 * avoided_td_credit_usd_per_kWh / raw_lcoe_usd_per_kWh if raw_lcoe_usd_per_kWh > 0 else 0.0
+    )
+    return {
+        "raw_lcoe_usd_per_kWh": raw_lcoe_usd_per_kWh,
+        "avoided_td_credit_usd_per_kWh": avoided_td_credit_usd_per_kWh,
+        "co_benefit_adjusted_lcoe_usd_per_kWh": adjusted,
+        "pct_of_raw_lcoe_offset": pct_of_gap_closed,
+        "note": (
+            "The avoided-T&D credit is real and citable (utility avoided-cost "
+            "studies) but small in absolute terms (~$0.02/kWh) relative to "
+            "CHORUS-SGH-1's multi-dollar/kWh capex-driven LCOE -- it offsets a "
+            "small percentage of the raw number, not the underlying gap. The "
+            "'brine is already flowing, fuel is free' argument is already fully "
+            "reflected in compute_lcoe (no fuel line item exists), so it is not "
+            "double-counted as a second credit here."
+        ),
+    }
+
+
 def sensitivity_sweep(P_target_W: float = 50.0) -> list[dict]:
     """LCOE across the honest optimistic<->conservative bound combinations,
     for the sensitivity table in docs/ECONOMICS.md."""
@@ -573,12 +627,47 @@ def main() -> None:
     p.add_argument("--density-w-m2", type=float, default=8.0)
     p.add_argument("--capacity-factor", type=float, default=0.90)
     p.add_argument("--sensitivity", action="store_true", help="print the full optimistic/conservative sweep")
+    p.add_argument(
+        "--breakeven",
+        type=float,
+        default=None,
+        metavar="TARGET_USD_PER_KWH",
+        help="run breakeven_report against this target LCOE (e.g. 0.09 for Lazard's solar/wind upper bound)",
+    )
+    p.add_argument(
+        "--learning-curve",
+        action="store_true",
+        help="print the volume_cost_projection (10x/100x/1000x manufacturing scale)",
+    )
+    p.add_argument(
+        "--co-benefit",
+        action="store_true",
+        help="apply the avoided-T&D credit to the computed LCOE and report the offset",
+    )
     p.add_argument("--out", type=Path, default=None)
     args = p.parse_args()
 
     if args.sensitivity:
         rows = sensitivity_sweep(P_target_W=args.power_w)
         out = args.out or EXPORTS / "lcoe_sensitivity.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+        print(f"Wrote {out}")
+        print(json.dumps(rows, indent=2))
+        return
+
+    if args.breakeven is not None:
+        report = breakeven_report(args.breakeven, P_target_W=args.power_w)
+        out = args.out or EXPORTS / "lcoe_breakeven.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(report, indent=2), encoding="utf-8")
+        print(f"Wrote {out}")
+        print(json.dumps(report, indent=2))
+        return
+
+    if args.learning_curve:
+        rows = volume_cost_projection()
+        out = args.out or EXPORTS / "lcoe_learning_curve.json"
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(rows, indent=2), encoding="utf-8")
         print(f"Wrote {out}")
@@ -597,6 +686,8 @@ def main() -> None:
         "total_capex_usd": result.total_capex_usd,
         "lcoe_usd_per_kWh": result.lcoe_usd_per_kWh,
     }
+    if args.co_benefit:
+        payload["co_benefit"] = co_benefit_adjusted_lcoe(result.lcoe_usd_per_kWh)
     out = args.out or EXPORTS / "lcoe_result.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
