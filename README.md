@@ -28,6 +28,36 @@ pytest tests/
 
 Notebooks: `notebooks/T1_bench_validation.ipynb`, `notebooks/VOH_spin_breakeven.ipynb`
 
+## Real DAQ ingestion, calibration, geometry audit, dashboard
+
+See [docs/ROADMAP.md](docs/ROADMAP.md) for the full current-state /
+roadmap and an honest per-item completion status; execution order is
+in [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md).
+
+```bash
+# Real serial ingestion (pyserial): opens --port for real, decodes
+# checksummed $SGH1/$SGHV frames (daq/protocol.py), falls back to
+# simulation ONLY on open/read failure, with a loud repeated warning.
+python -m daq.serial_sensors --port /dev/ttyUSB0 --duration 60
+
+# Fit L_p / RPM->torque constants from bench CSVs (labels data
+# provenance simulated/real explicitly; never fabricates "real").
+python -m scripts.calibrate_constants --csv data/bench/*.csv
+
+# CAD geometry manifold/watertightness check (shells out to `openscad`
+# CLI when installed; otherwise records an explicit per-part skip
+# reason instead of a silent pass).
+python -m scripts.audit_openscad
+
+# Resumable protocol runner: re-enter at the first incomplete step
+# instead of restarting from T0 after a crash/disconnect.
+python scripts/run_test_protocol.py --test all
+python scripts/run_test_protocol.py --test all --resume
+
+# Live dashboard over an active/completed bench CSV (stdlib only).
+python -m daq.dashboard --csv data/bench/T1_baseline_20260609_235853.csv
+```
+
 ## Research paper (PoC)
 
 **Joseph Black** and **Connor White** — *CHORUS-SGH-1: Brine-Gradient Power, UDT/AOR/VOH Vision, and Osmotic-Vortex Hydro* ([PDF](papers/Black_2026_CHORUS_SGH1_PoC.pdf) · [source](papers/black_2026_chorus_sgh1_poc.md))
