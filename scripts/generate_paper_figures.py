@@ -295,14 +295,35 @@ def fig_brine_pairs(data: dict) -> Path:
     return _save(fig, out)
 
 
-# Approximate public coordinates for the named real-world case-study sites
-# already cited in exports/real_world_calibration.json. These are geographic
-# reference points for the pilot/plant locations, not simulated or fitted
-# quantities.
-_SITE_COORDS = {
-    "Statkraft Tofte": (59.60, 10.42),   # Hurum, Norway
-    "REAPower Trapani": (38.02, 12.53),  # Trapani, Italy
-    "Perth PSDP": (-32.25, 115.77),      # Kwinana, Australia
+# Full candidate-deployment-site set from docs/CANDIDATE_SITES.md, extending
+# the three case-study points above with the two named brine-outfall sites
+# that document also cites. Each entry carries a real, publicly-sourced
+# lat/lon (see docs/CANDIDATE_SITES.md for the citations) and a "class" that
+# separates sites where PRO/RED power generation has actually been
+# operated/tested (Tofte, Trapani) from candidate host sites that have never
+# had a PRO/RED device installed -- they are documented brine/effluent
+# sources CHORUS-SGH-1 could co-locate at, not operating pilots.
+# Site types 4 (generic SWRO brine class, worldwide) and 5 (unverified
+# candidate WWTP) are NOT included here: docs/CANDIDATE_SITES.md explicitly
+# does not cite a single real facility location for either, and this repo's
+# own convention is to flag an honest gap rather than invent a coordinate.
+_CANDIDATE_SITES = {
+    "Statkraft Tofte (Hurum, Norway)": {
+        "lat": 59.60, "lon": 10.42, "class": "operational_tested",
+        "note": "PRO pilot 2009-2014, 2000 m^2 membrane, ~1-2 W/m^2 realized",
+    },
+    "REAPower Trapani (Italy)": {
+        "lat": 38.02, "lon": 12.53, "class": "operational_tested",
+        "note": "RED pilot, 40-60 W gross at 1.6-2.6 W/m^2, ~50 m^2 membrane",
+    },
+    "Perth PSDP (Kwinana, Australia)": {
+        "lat": -32.25, "lon": 115.77, "class": "candidate_untested",
+        "note": "SWRO brine outfall, ~418 ML/day, brine ~1.8x seawater",
+    },
+    "Carlsbad Desalination Plant (California, USA)": {
+        "lat": 33.13, "lon": -117.33, "class": "candidate_untested",
+        "note": "SWRO brine outfall, 50 MGD brine at ~67 g/L, plume documented to ~600 m offshore",
+    },
 }
 
 
@@ -322,9 +343,6 @@ def fig_design_vs_literature(data: dict) -> Path:
         p_vals.append(bv["P_net_mean_W"])
         colors.append(ROLE["tertiary"])
 
-    cases = data.get("real_world_case_studies") or []
-    sites = [(name, lat, lon) for name, (lat, lon) in _SITE_COORDS.items()]
-
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.5), gridspec_kw={"width_ratios": [1, 1.3]})
 
     ax0 = axes[0]
@@ -338,21 +356,45 @@ def fig_design_vs_literature(data: dict) -> Path:
     ax0.tick_params(axis="x", labelsize=7)
 
     ax1 = axes[1]
-    for name, lat, lon in sites:
-        ax1.scatter(lon, lat, s=90, color=ROLE["secondary"], edgecolor="black", zorder=3)
-        ax1.annotate(name, (lon, lat), xytext=(6, 4), textcoords="offset points", fontsize=8)
+    for name, info in _CANDIDATE_SITES.items():
+        lat, lon = info["lat"], info["lon"]
+        tested = info["class"] == "operational_tested"
+        ax1.scatter(
+            lon, lat, s=100,
+            color=ROLE["primary"] if tested else ROLE["highlight"],
+            marker="o" if tested else "^",
+            edgecolor="black", zorder=3,
+        )
+        ax1.annotate(name.split(" (")[0], (lon, lat), xytext=(6, 4), textcoords="offset points", fontsize=7.5)
     ax1.axhline(0, color="#999999", lw=0.6)
-    ax1.set_xlim(-30, 150)
+    ax1.set_xlim(-130, 150)
     ax1.set_ylim(-45, 70)
     ax1.set_xlabel("Longitude (°)")
     ax1.set_ylabel("Latitude (°)")
-    ax1.set_title("(b) Real-world PRO/RED pilot sites cited in this study")
+    ax1.set_title("(b) Candidate-deployment sites (docs/CANDIDATE_SITES.md)")
     ax1.grid(True, alpha=0.3)
+    from matplotlib.lines import Line2D
+    legend_handles = [
+        Line2D([0], [0], marker="o", color="w", markerfacecolor=ROLE["primary"],
+               markeredgecolor="black", markersize=9, label="Operational/tested PRO or RED pilot"),
+        Line2D([0], [0], marker="^", color="w", markerfacecolor=ROLE["highlight"],
+               markeredgecolor="black", markersize=9, label="Candidate host site (untested co-location)"),
+    ]
+    ax1.legend(handles=legend_handles, fontsize=6.5, loc="lower left")
+    ax1.text(
+        0.02, 0.98,
+        "Site types 4 (generic SWRO brine class) and 5 (unverified\n"
+        "candidate WWTP) omitted: no single real facility location\n"
+        "is cited for either in docs/CANDIDATE_SITES.md.",
+        transform=ax1.transAxes, ha="left", va="top", fontsize=6, style="italic", color="#555555",
+    )
 
     provenance_caption(
         axes[0],
         "(a) simulated model + literature (Pedersen 2024 SSRN 4944813) + bench-measured T1; "
-        "(b) plain lat/lon scatter of real cited pilot locations, no basemap imagery used",
+        "(b) plain lat/lon scatter of docs/CANDIDATE_SITES.md's four named sites (Tofte, Trapani, Perth, "
+        "Carlsbad), no basemap imagery used; site types 4-5 are documented classes without a single "
+        "cited real facility location and are intentionally not plotted",
         kind="mixed",
     )
     out = FIGURES / "fig13_literature_calibration.png"
