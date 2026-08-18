@@ -458,6 +458,87 @@ def fig_voh_omega(data: dict) -> Path:
     return _save(fig, out)
 
 
+def _load_lcoe_tornado():
+    p = EXPORTS / "lcoe_tornado.json"
+    return json.loads(p.read_text()) if p.exists() else []
+
+
+def _load_lcoe_learning_curve():
+    p = EXPORTS / "lcoe_learning_curve.json"
+    return json.loads(p.read_text()) if p.exists() else []
+
+
+def fig_lcoe_tornado() -> Path:
+    """One-at-a-time LCOE sensitivity tornado chart, from
+    scripts/lcoe_model.py's ``tornado_sensitivity`` (exports/lcoe_tornado.json).
+    Bars are ordered by swing magnitude (largest lever on top)."""
+    rows = _load_lcoe_tornado()
+    baseline = rows[0]["baseline_lcoe_usd_per_kWh"]
+    labels = [r["parameter"] for r in rows]
+    lo = [r["low_case_lcoe_usd_per_kWh"] for r in rows]
+    hi = [r["high_case_lcoe_usd_per_kWh"] for r in rows]
+
+    fig, ax = plt.subplots(figsize=(8.5, 4.5))
+    y = np.arange(len(labels))
+    for i, (l, h) in enumerate(zip(lo, hi)):
+        left = min(l, h)
+        width = abs(h - l)
+        ax.barh(y[i], width, left=left, height=0.55, color=ROLE["primary"], edgecolor="black", zorder=3)
+        ax.annotate(f"{l:.2f}", (min(l, h), y[i]), xytext=(-6, 0), textcoords="offset points",
+                    va="center", ha="right", fontsize=7.5)
+        ax.annotate(f"{h:.2f}", (max(l, h), y[i]), xytext=(6, 0), textcoords="offset points",
+                    va="center", ha="left", fontsize=7.5)
+    ax.axvline(baseline, color=ROLE["reference"], ls="--", lw=1.3, label=f"Baseline (${baseline:.2f}/kWh)")
+    ax.set_xscale("symlog", linthresh=1.0)
+    ax.set_xlim(0, 250)
+    ax.set_yticks(y)
+    ax.set_yticklabels(labels, fontsize=8.5)
+    ax.invert_yaxis()
+    ax.set_xlabel("LCOE ($/kWh, symlog scale)")
+    ax.set_title("CHORUS-SGH-1 LCOE sensitivity — one-at-a-time parameter tornado")
+    ax.legend(fontsize=8, loc="lower right")
+    provenance_caption(
+        ax,
+        "scripts/lcoe_model.py tornado_sensitivity(P_target_W=1000), OAT sweep of each "
+        "parameter's own low/high anchor from this module's cost constants; exports/lcoe_tornado.json",
+        kind="simulated",
+    )
+    out = FIGURES / "fig17_lcoe_tornado.png"
+    return _save(fig, out)
+
+
+def fig_lcoe_learning_curve() -> Path:
+    """Manufacturing-volume learning curve (Wright's law) from
+    scripts/lcoe_model.py's ``volume_cost_projection``
+    (exports/lcoe_learning_curve.json): log-log LCOE vs. cumulative unit
+    volume across three per-doubling learning-rate scenarios."""
+    rows = _load_lcoe_learning_curve()
+    scenarios = sorted({r["learning_rate_scenario"] for r in rows}, key=lambda s: next(r["learning_rate"] for r in rows if r["learning_rate_scenario"] == s))
+    colors = {scenarios[0]: ROLE["secondary"], scenarios[1]: ROLE["primary"], scenarios[2]: ROLE["tertiary"]}
+
+    fig, ax = plt.subplots(figsize=(8.0, 4.5))
+    for scen in scenarios:
+        pts = sorted([r for r in rows if r["learning_rate_scenario"] == scen], key=lambda r: r["cumulative_volume"])
+        x = [p["cumulative_volume"] for p in pts]
+        y = [p["lcoe_usd_per_kWh_at_1kW_practical_density"] for p in pts]
+        rate = pts[0]["learning_rate"]
+        ax.plot(x, y, "o-", color=colors[scen], lw=2, label=f"{scen} ({rate*100:.0f}%/doubling)")
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xlabel("Cumulative manufactured volume (units)")
+    ax.set_ylabel("LCOE at 1 kW, practical density ($/kWh)")
+    ax.set_title("Manufacturing learning curve — Wright's law cost decline")
+    ax.legend(fontsize=8)
+    provenance_caption(
+        ax,
+        "scripts/lcoe_model.py volume_cost_projection(): cost(N) = cost(1)*N^log2(1-rate), "
+        "seeded from this module's baseline BOP/membrane costs; exports/lcoe_learning_curve.json",
+        kind="simulated",
+    )
+    out = FIGURES / "fig18_lcoe_learning_curve.png"
+    return _save(fig, out)
+
+
 def main():
     FIGURES.mkdir(parents=True, exist_ok=True)
     data = _load()
@@ -482,6 +563,10 @@ def main():
             fig_aor_column(data),
             fig_voh_omega(data),
         ])
+    if (EXPORTS / "lcoe_tornado.json").exists():
+        paths.append(fig_lcoe_tornado())
+    if (EXPORTS / "lcoe_learning_curve.json").exists():
+        paths.append(fig_lcoe_learning_curve())
     for p in paths:
         print(p)
 
