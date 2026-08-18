@@ -119,6 +119,7 @@ def geometry_check(scad_path: Path, binary: str | None) -> dict:
             "degenerate_triangles": report.degenerate_triangles,
             "open_edges": report.open_edges,
             "non_manifold_edges": report.non_manifold_edges,
+            "inconsistent_winding_edges": report.inconsistent_winding_edges,
             "mesh_ok": report.ok,
         }
 

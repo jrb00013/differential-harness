@@ -58,6 +58,23 @@ python scripts/run_test_protocol.py --test all --resume
 python -m daq.dashboard --csv data/bench/T1_baseline_20260609_235853.csv
 ```
 
+Round 2 (see [docs/ROADMAP_ROUND2.md](docs/ROADMAP_ROUND2.md) /
+[docs/IMPLEMENTATION_PLAN_ROUND2.md](docs/IMPLEMENTATION_PLAN_ROUND2.md))
+adds real vision-stack signal processing, multi-run calibration
+statistics, protocol-run history, and STL winding checks:
+
+```bash
+# Multi-run L_p calibration with a confidence interval + outlier flags.
+python -m scripts.calibrate_constants --csv data/bench/*.csv --aggregate
+
+# Table of every checkpointed protocol run under data/bench/.
+python -m scripts.protocol_history
+```
+
+`simulation/vision_signal.py` turns a stream of `$SGHV` samples into
+RMS amplitude, phase coherence, and an `eta_tink` estimate; see its
+module docstring for the underlying math.
+
 ## Research paper (PoC)
 
 **Joseph Black** and **Connor White** — *CHORUS-SGH-1: Brine-Gradient Power, UDT/AOR/VOH Vision, and Osmotic-Vortex Hydro* ([PDF](papers/Black_2026_CHORUS_SGH1_PoC.pdf) · [source](papers/black_2026_chorus_sgh1_poc.md))

@@ -24,9 +24,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 
 import numpy as np
+from scipy import stats
 
 from daq.logger import read_sensors_sim
 from simulation.bench_validation import load_bench_csv, validate_bench_csv
@@ -127,6 +129,84 @@ def _synthetic_torque_demo() -> dict:
     return fit
 
 
+def fit_L_p_aggregate(csv_paths: list[Path], A_mem_m2: float = 0.72, confidence: float = 0.95) -> dict:
+    """Fit L_p per-run across multiple bench CSVs and report an aggregate
+    with a t-distribution confidence interval, flagging outlier runs.
+
+    Round-2 addition (docs/ROADMAP_ROUND2.md R2.3): an operator running
+    T1 several times previously had no way to see whether the fits
+    agreed run-to-run or one run was an outlier -- only a single pooled
+    number. This reports per-run values, mean, sample standard
+    deviation, a `confidence`-level CI (via scipy.stats.t, since the
+    true population std is unknown and sample sizes are typically
+    small), and flags any run more than 2 standard deviations from the
+    mean.
+    """
+    per_run = [fit_L_p(p, A_mem_m2=A_mem_m2) for p in csv_paths]
+    values = np.array([r["L_p_fit_m_Pa_s"] for r in per_run if r["L_p_fit_m_Pa_s"] > 0])
+    n = values.size
+
+    if n == 0:
+        return {
+            "n_runs": 0,
+            "per_run": per_run,
+            "mean_m_Pa_s": None,
+            "std_m_Pa_s": None,
+            "confidence": confidence,
+            "ci_low_m_Pa_s": None,
+            "ci_high_m_Pa_s": None,
+            "outlier_runs": [],
+            "note": "No valid L_p fits available across the supplied runs.",
+        }
+
+    mean = float(np.mean(values))
+    std = float(np.std(values, ddof=1)) if n > 1 else 0.0
+
+    if n > 1 and std > 0:
+        sem = std / math.sqrt(n)
+        t_crit = float(stats.t.ppf(0.5 + confidence / 2.0, df=n - 1))
+        ci_low = mean - t_crit * sem
+        ci_high = mean + t_crit * sem
+    else:
+        # A single run (or zero-variance runs) has no meaningful CI half-width.
+        ci_low = ci_high = mean
+
+    # Outlier detection uses the median + MAD (median absolute deviation),
+    # not mean/std: with small n (typical for a handful of bench runs), a
+    # single genuine outlier drags the mean and inflates the std enough
+    # that a naive z-score often fails to flag the very point that caused
+    # it (masking). The MAD-based "robust z-score" (Iglewicz & Hoaglin,
+    # 1993) is resistant to that failure mode.
+    outliers = []
+    median = float(np.median(values))
+    mad = float(np.median(np.abs(values - median)))
+    if mad > 0:
+        for r in per_run:
+            v = r["L_p_fit_m_Pa_s"]
+            if v <= 0:
+                continue
+            robust_z = 0.6745 * (v - median) / mad
+            if abs(robust_z) > 3.5:
+                outliers.append({"source_csv": r["source_csv"], "L_p_fit_m_Pa_s": v, "robust_z_score": robust_z})
+
+    return {
+        "n_runs": n,
+        "per_run": per_run,
+        "mean_m_Pa_s": mean,
+        "std_m_Pa_s": std,
+        "confidence": confidence,
+        "ci_low_m_Pa_s": ci_low,
+        "ci_high_m_Pa_s": ci_high,
+        "outlier_runs": outliers,
+        "note": (
+            "Aggregate fit across simulated bench CSVs (see docs/ROADMAP.md M6 -- "
+            "real T1 bench data has not been collected yet). A run flagged as an "
+            "outlier (>2 sigma from the pooled mean) warrants operator review "
+            "before being folded into simulation/constants.py."
+        ),
+    }
+
+
 def calibrate(csv_paths: list[Path], A_mem_m2: float = 0.72) -> dict:
     l_p_fits = [fit_L_p(p, A_mem_m2=A_mem_m2) for p in csv_paths]
 
@@ -170,6 +250,12 @@ def main() -> None:
     p.add_argument("--csv", type=Path, nargs="*", default=None, help="bench CSV(s); default: all in data/bench/")
     p.add_argument("--a-mem", type=float, default=0.72)
     p.add_argument("--out", type=Path, default=None)
+    p.add_argument(
+        "--aggregate",
+        action="store_true",
+        help="also fit L_p per-CSV and report a multi-run mean/CI/outlier summary",
+    )
+    p.add_argument("--confidence", type=float, default=0.95, help="CI level for --aggregate")
     args = p.parse_args()
 
     csv_paths = args.csv or sorted(DATA.glob("*.csv"))
@@ -177,6 +263,9 @@ def main() -> None:
         raise SystemExit(f"No bench CSVs found in {DATA}")
 
     result = calibrate(csv_paths, A_mem_m2=args.a_mem)
+    if args.aggregate:
+        result["L_p_aggregate"] = fit_L_p_aggregate(csv_paths, A_mem_m2=args.a_mem, confidence=args.confidence)
+
     out = args.out or EXPORTS / "constant_calibration.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, indent=2), encoding="utf-8")
