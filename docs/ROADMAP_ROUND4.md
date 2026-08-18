@@ -55,11 +55,25 @@ claims without a script backing them.
 
 | Milestone | Status |
 |---|---|
-| R4.1 — Breakeven sensitivity solvers | This PR |
-| R4.2 — Avoided-T&D value + honest co-benefit framing | This PR |
-| R4.3 — Learning-curve volume-cost projection | This PR |
-| R4.4 — ECONOMICS.md rewrite with the honest bottom-line conclusion | This PR |
+| R4.1 — Breakeven sensitivity solvers | Done — `scripts/lcoe_model.py::breakeven_report` |
+| R4.2 — Avoided-T&D value + honest co-benefit framing | Done — `co_benefit_adjusted_lcoe()` |
+| R4.3 — Learning-curve volume-cost projection | Done — `volume_cost_projection()` |
+| R4.4 — ECONOMICS.md rewrite with the honest bottom-line conclusion | Done |
 | R4.5 — Real manufacturing-at-scale validation of the learning-curve assumption | Blocked — no manufacturing history exists for this hardware; same hard-limit class as every prior round |
 
-See `docs/ECONOMICS.md` for the honest bottom-line conclusion this
-round reaches.
+## Round 4 bottom line (see `docs/ECONOMICS.md` for full detail)
+
+No single lever (power density, membrane cost, or membrane replacement
+life) closes the gap to solar/wind LCOE within any real physical or
+practical ceiling. Manufacturing scale alone (up to 1000x cumulative
+volume, at the most optimistic cited learning rate) does not close it
+either. Only stacking two simultaneous, currently-unproven extremes —
+lab-hypersaline power density AND 1000x manufacturing scale — reaches
+order-of-magnitude parity with standalone battery storage (~$0.30/kWh),
+still not solar/wind generation directly. The real, cited avoided-T&D
+co-benefit credit (~$0.02/kWh) offsets under 1% of the raw LCOE at
+CHORUS-SGH-1's actual cost scale. This is not "no plausible path
+under any conditions," but it is a plainly stated "no realistic path
+without simultaneously achieving two separate technical extremes
+neither of which this repo's own hardware protocol has validated" —
+round 4 does not manufacture optimism the model does not support.
