@@ -591,6 +591,70 @@ def co_benefit_adjusted_lcoe(raw_lcoe_usd_per_kWh: float, avoided_td_credit_usd_
     }
 
 
+def tornado_sensitivity(P_target_W: float = 1000.0, P_density_W_m2: float = 8.0) -> list[dict]:
+    """One-at-a-time (OAT) parameter sensitivity for a tornado chart: hold
+    every input at its baseline (the 'practical' density scenario with
+    conservative cost anchors, i.e. compute_lcoe's own defaults) and swing
+    exactly one parameter across its own honest low/high bound from this
+    module's cost anchors, reporting the resulting LCOE swing. This isolates
+    which single lever moves LCOE the most -- unlike sensitivity_sweep's
+    combined optimistic/conservative bundles, which mix all levers at once
+    and so cannot say which individual parameter matters most."""
+    baseline = compute_lcoe(P_target_W=P_target_W, P_density_W_m2=P_density_W_m2)
+    baseline_lcoe = baseline.lcoe_usd_per_kWh
+
+    params = [
+        (
+            "Membrane cost ($/m²)",
+            "membrane_cost_usd_m2",
+            MEMBRANE_COST_LOW_USD_M2,
+            MEMBRANE_COST_HIGH_USD_M2,
+        ),
+        (
+            "BOP cost ($/skid)",
+            "bop_cost_usd_per_skid",
+            BOP_COST_LOW_USD,
+            BOP_COST_HIGH_USD,
+        ),
+        (
+            "Membrane replacement interval (yr)",
+            "membrane_life_years",
+            MEMBRANE_LIFE_YEARS_HIGH,  # longer life -> lower LCOE, so this is the "low-LCOE" side
+            MEMBRANE_LIFE_YEARS_LOW,
+        ),
+        (
+            "Areal power density (W/m²)",
+            "P_density_W_m2",
+            25.0,   # lab_optimistic anchor -> lower LCOE
+            1.0,    # statkraft_floor anchor -> higher LCOE
+        ),
+    ]
+
+    rows = []
+    for label, kwarg, low_lcoe_value, high_lcoe_value in params:
+        kwargs_low = {kwarg: low_lcoe_value}
+        kwargs_high = {kwarg: high_lcoe_value}
+        if kwarg == "P_density_W_m2":
+            r_low = compute_lcoe(P_target_W=P_target_W, P_density_W_m2=low_lcoe_value)
+            r_high = compute_lcoe(P_target_W=P_target_W, P_density_W_m2=high_lcoe_value)
+        else:
+            r_low = compute_lcoe(P_target_W=P_target_W, P_density_W_m2=P_density_W_m2, **kwargs_low)
+            r_high = compute_lcoe(P_target_W=P_target_W, P_density_W_m2=P_density_W_m2, **kwargs_high)
+        lcoe_low = r_low.lcoe_usd_per_kWh
+        lcoe_high = r_high.lcoe_usd_per_kWh
+        rows.append(
+            {
+                "parameter": label,
+                "baseline_lcoe_usd_per_kWh": baseline_lcoe,
+                "low_case_lcoe_usd_per_kWh": lcoe_low,
+                "high_case_lcoe_usd_per_kWh": lcoe_high,
+                "swing_usd_per_kWh": abs(lcoe_high - lcoe_low),
+            }
+        )
+    rows.sort(key=lambda r: r["swing_usd_per_kWh"], reverse=True)
+    return rows
+
+
 def sensitivity_sweep(P_target_W: float = 50.0) -> list[dict]:
     """LCOE across the honest optimistic<->conservative bound combinations,
     for the sensitivity table in docs/ECONOMICS.md."""
@@ -640,6 +704,11 @@ def main() -> None:
         help="print the volume_cost_projection (10x/100x/1000x manufacturing scale)",
     )
     p.add_argument(
+        "--tornado",
+        action="store_true",
+        help="print the one-at-a-time tornado_sensitivity (which single lever moves LCOE most)",
+    )
+    p.add_argument(
         "--co-benefit",
         action="store_true",
         help="apply the avoided-T&D credit to the computed LCOE and report the offset",
@@ -668,6 +737,15 @@ def main() -> None:
     if args.learning_curve:
         rows = volume_cost_projection()
         out = args.out or EXPORTS / "lcoe_learning_curve.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+        print(f"Wrote {out}")
+        print(json.dumps(rows, indent=2))
+        return
+
+    if args.tornado:
+        rows = tornado_sensitivity(P_target_W=args.power_w)
+        out = args.out or EXPORTS / "lcoe_tornado.json"
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(rows, indent=2), encoding="utf-8")
         print(f"Wrote {out}")
