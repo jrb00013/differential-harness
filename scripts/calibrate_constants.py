@@ -31,7 +31,13 @@ import numpy as np
 from scipy import stats
 
 from daq.logger import read_sensors_sim
-from simulation.bench_validation import load_bench_csv, validate_bench_csv
+from simulation.bench_validation import (
+    cond_to_c_mol_m3,
+    delta_pi_Pa,
+    invert_L_p,
+    load_bench_csv,
+    validate_bench_csv,
+)
 from simulation.constants import RPM_TO_RAD_S
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -66,6 +72,92 @@ def fit_L_p(csv_path: Path, A_mem_m2: float = 0.72) -> dict:
         "P_density_measured_W_m2": val.P_density_measured_W_m2,
         "n_rows": val.n_rows,
         "duration_s": val.duration_s,
+    }
+
+
+def _fit_L_p_from_rows(rows: list, A_mem_m2: float) -> float:
+    """Fit L_p from a chronological slice of BenchRow objects, using the
+    same math as simulation.bench_validation.validate_bench_csv's steady
+    window, but on a caller-supplied window rather than the fixed
+    last-25%-of-run steady window. Shared by fit_L_p_time_series() below."""
+    if not rows:
+        return 0.0
+
+    def mean_attr(name: str) -> float:
+        return float(np.mean([getattr(r, name) for r in rows]))
+
+    c_d = cond_to_c_mol_m3(mean_attr("cond_draw_mS_cm"), brine=True)
+    c_f = cond_to_c_mol_m3(mean_attr("cond_feed_mS_cm"), brine=False)
+    T_avg = 0.5 * (mean_attr("T_feed_C") + mean_attr("T_draw_C")) + 273.15
+    dpi = delta_pi_Pa(c_d, c_f, T_avg)
+    delta_P_Pa = max((mean_attr("P_draw_bar") - mean_attr("P_feed_bar")) * 1e5, 0.0)
+    Q_m3_s = mean_attr("Q_draw_L_min") * 1e-3 / 60.0
+    return invert_L_p(Q_m3_s, dpi, delta_P_Pa, A_mem_m2)
+
+
+def fit_L_p_time_series(csv_path: Path, A_mem_m2: float = 0.72, n_segments: int = 4) -> dict:
+    """Fit L_p in `n_segments` chronological sub-windows of a single bench
+    run and report the percent decline from the first to the last
+    segment -- the headline fouling-resistance metric in
+    docs/FOULING_TEST_PROTOCOL.md's T1f.2 flux-decline measurement.
+
+    A membrane fouling over the course of a run manifests as L_p
+    (permeability) declining over time even though feed/draw
+    conditions are nominally held steady: fouling deposits add
+    additional hydraulic resistance the steady-state PRO model does not
+    otherwise account for. Splitting one CSV into chronological
+    segments and re-fitting L_p per segment turns that decline into a
+    measurable curve instead of a single pooled number that would average
+    it away.
+    """
+    rows = load_bench_csv(csv_path)
+    if len(rows) < n_segments:
+        return {
+            "source_csv": str(csv_path),
+            "sufficient_data": False,
+            "reason": f"need >= {n_segments} rows for {n_segments} segments, got {len(rows)}",
+        }
+
+    segment_size = len(rows) // n_segments
+    segments = []
+    for i in range(n_segments):
+        start = i * segment_size
+        end = (i + 1) * segment_size if i < n_segments - 1 else len(rows)
+        seg_rows = rows[start:end]
+        L_p = _fit_L_p_from_rows(seg_rows, A_mem_m2)
+        segments.append(
+            {
+                "segment_index": i,
+                "t_start_s": seg_rows[0].t_s,
+                "t_end_s": seg_rows[-1].t_s,
+                "n_rows": len(seg_rows),
+                "L_p_fit_m_Pa_s": L_p,
+            }
+        )
+
+    first_valid = next((s["L_p_fit_m_Pa_s"] for s in segments if s["L_p_fit_m_Pa_s"] > 0), None)
+    last_valid = next((s["L_p_fit_m_Pa_s"] for s in reversed(segments) if s["L_p_fit_m_Pa_s"] > 0), None)
+
+    if first_valid is None or last_valid is None:
+        decline_pct = None
+    else:
+        decline_pct = 100.0 * (first_valid - last_valid) / first_valid
+
+    return {
+        "source_csv": str(csv_path),
+        "data_provenance": _row_data_provenance(csv_path),
+        "sufficient_data": True,
+        "n_segments": n_segments,
+        "segments": segments,
+        "L_p_first_segment_m_Pa_s": first_valid,
+        "L_p_last_segment_m_Pa_s": last_valid,
+        "L_p_decline_pct": decline_pct,
+        "note": (
+            "L_p_decline_pct > 0 indicates permeability dropped over the "
+            "course of this run (consistent with fouling); see "
+            "docs/FOULING_TEST_PROTOCOL.md T1f.2 for the proposed pass/fail "
+            "threshold and its honest caveats."
+        ),
     }
 
 
@@ -256,6 +348,12 @@ def main() -> None:
         help="also fit L_p per-CSV and report a multi-run mean/CI/outlier summary",
     )
     p.add_argument("--confidence", type=float, default=0.95, help="CI level for --aggregate")
+    p.add_argument(
+        "--time-series",
+        action="store_true",
+        help="fit L_p in chronological sub-windows per CSV (docs/FOULING_TEST_PROTOCOL.md T1f.2 flux-decline check)",
+    )
+    p.add_argument("--segments", type=int, default=4, help="number of chronological segments for --time-series")
     args = p.parse_args()
 
     csv_paths = args.csv or sorted(DATA.glob("*.csv"))
@@ -265,6 +363,10 @@ def main() -> None:
     result = calibrate(csv_paths, A_mem_m2=args.a_mem)
     if args.aggregate:
         result["L_p_aggregate"] = fit_L_p_aggregate(csv_paths, A_mem_m2=args.a_mem, confidence=args.confidence)
+    if args.time_series:
+        result["L_p_time_series"] = [
+            fit_L_p_time_series(p_csv, A_mem_m2=args.a_mem, n_segments=args.segments) for p_csv in csv_paths
+        ]
 
     out = args.out or EXPORTS / "constant_calibration.json"
     out.parent.mkdir(parents=True, exist_ok=True)

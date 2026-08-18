@@ -14,7 +14,12 @@ import csv
 import numpy as np
 import pytest
 
-from scripts.calibrate_constants import calibrate, fit_L_p_aggregate, fit_rpm_torque
+from scripts.calibrate_constants import (
+    calibrate,
+    fit_L_p_aggregate,
+    fit_L_p_time_series,
+    fit_rpm_torque,
+)
 
 FIELDNAMES = [
     "t_s",
@@ -170,3 +175,75 @@ def test_fit_L_p_aggregate_empty_input_reports_no_runs():
     agg = fit_L_p_aggregate([])
     assert agg["n_runs"] == 0
     assert agg["mean_m_Pa_s"] is None
+
+
+def _write_declining_flow_csv(path, n_rows: int = 40, q_start: float = 0.20, q_end: float = 0.05):
+    """Simulates a fouling run: Q_draw_L_min declines monotonically over
+    time (as increasing hydraulic resistance from fouling would reduce
+    permeate flow at constant driving pressure), so a chronological
+    L_p time-series fit should recover a positive decline percentage."""
+    with path.open("w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=FIELDNAMES)
+        w.writeheader()
+        for t in range(n_rows):
+            frac = t / max(n_rows - 1, 1)
+            q = q_start + (q_end - q_start) * frac
+            w.writerow(
+                {
+                    "t_s": t,
+                    "P_feed_bar": 0.5,
+                    "P_draw_bar": 34.0,
+                    "Q_feed_L_min": 2.0,
+                    "Q_draw_L_min": q,
+                    "cond_feed_mS_cm": 8.0,
+                    "cond_draw_mS_cm": 85.0,
+                    "T_feed_C": 22.0,
+                    "T_draw_C": 23.0,
+                    "P_elec_W": 1.7,
+                    "P_pump_W": 0.35,
+                    "P_us_W": 0.0,
+                    "P_spin_motor_W": 0.0,
+                    "P_net_W": 0.25,
+                }
+            )
+
+
+def test_fit_L_p_time_series_detects_declining_permeability(tmp_path):
+    csv_path = tmp_path / "fouling_run.csv"
+    _write_declining_flow_csv(csv_path)
+
+    result = fit_L_p_time_series(csv_path, n_segments=4)
+    assert result["sufficient_data"] is True
+    assert result["n_segments"] == 4
+    assert len(result["segments"]) == 4
+    # Q_draw (and therefore the fitted L_p) declines monotonically ->
+    # positive decline percentage.
+    assert result["L_p_decline_pct"] > 0
+    assert result["L_p_first_segment_m_Pa_s"] > result["L_p_last_segment_m_Pa_s"]
+    assert result["data_provenance"] == "simulated"
+
+
+def test_fit_L_p_time_series_stable_run_shows_near_zero_decline(tmp_path):
+    csv_path = tmp_path / "stable_run.csv"
+    _write_fixture_csv(csv_path, q_draw_L_min=0.15, n_rows=40)
+
+    result = fit_L_p_time_series(csv_path, n_segments=4)
+    assert result["sufficient_data"] is True
+    assert abs(result["L_p_decline_pct"]) < 5.0  # essentially flat, not fouling
+
+
+def test_fit_L_p_time_series_reports_insufficient_data_for_short_run(tmp_path):
+    csv_path = tmp_path / "short_run.csv"
+    _write_fixture_csv(csv_path, q_draw_L_min=0.15, n_rows=2)
+
+    result = fit_L_p_time_series(csv_path, n_segments=10)
+    assert result["sufficient_data"] is False
+    assert "reason" in result
+
+
+def test_fit_L_p_time_series_segments_are_chronologically_ordered(tmp_path):
+    csv_path = tmp_path / "fouling_run.csv"
+    _write_declining_flow_csv(csv_path)
+    result = fit_L_p_time_series(csv_path, n_segments=4)
+    starts = [s["t_start_s"] for s in result["segments"]]
+    assert starts == sorted(starts)
