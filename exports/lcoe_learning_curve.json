@@ -1,0 +1,98 @@
+[
+  {
+    "learning_rate_scenario": "conservative_10pct",
+    "learning_rate": 0.1,
+    "cumulative_volume": 1,
+    "bop_cost_usd_per_skid": 8000.0,
+    "membrane_cost_usd_m2": 150.0,
+    "lcoe_usd_per_kWh_at_1kW_practical_density": 20.77968214777718
+  },
+  {
+    "learning_rate_scenario": "conservative_10pct",
+    "learning_rate": 0.1,
+    "cumulative_volume": 10,
+    "bop_cost_usd_per_skid": 5637.504396098768,
+    "membrane_cost_usd_m2": 105.7032074268519,
+    "lcoe_usd_per_kWh_at_1kW_practical_density": 14.643193682203616
+  },
+  {
+    "learning_rate_scenario": "conservative_10pct",
+    "learning_rate": 0.1,
+    "cumulative_volume": 100,
+    "bop_cost_usd_per_skid": 3972.6819770041166,
+    "membrane_cost_usd_m2": 74.48778706882719,
+    "lcoe_usd_per_kWh_at_1kW_practical_density": 10.318883594543575
+  },
+  {
+    "learning_rate_scenario": "conservative_10pct",
+    "learning_rate": 0.1,
+    "cumulative_volume": 1000,
+    "bop_cost_usd_per_skid": 2799.5015137078813,
+    "membrane_cost_usd_m2": 52.49065338202278,
+    "lcoe_usd_per_kWh_at_1kW_practical_density": 7.271593953383857
+  },
+  {
+    "learning_rate_scenario": "typical_15pct",
+    "learning_rate": 0.15,
+    "cumulative_volume": 1,
+    "bop_cost_usd_per_skid": 8000.0,
+    "membrane_cost_usd_m2": 150.0,
+    "lcoe_usd_per_kWh_at_1kW_practical_density": 20.77968214777718
+  },
+  {
+    "learning_rate_scenario": "typical_15pct",
+    "learning_rate": 0.15,
+    "cumulative_volume": 10,
+    "bop_cost_usd_per_skid": 4662.563218614384,
+    "membrane_cost_usd_m2": 87.42306034901969,
+    "lcoe_usd_per_kWh_at_1kW_practical_density": 12.11082270959048
+  },
+  {
+    "learning_rate_scenario": "typical_15pct",
+    "learning_rate": 0.15,
+    "cumulative_volume": 100,
+    "bop_cost_usd_per_skid": 2717.4369709469656,
+    "membrane_cost_usd_m2": 50.95194320525561,
+    "lcoe_usd_per_kWh_at_1kW_practical_density": 7.058434564112046
+  },
+  {
+    "learning_rate_scenario": "typical_15pct",
+    "learning_rate": 0.15,
+    "cumulative_volume": 1000,
+    "bop_cost_usd_per_skid": 1583.7777087050258,
+    "membrane_cost_usd_m2": 29.695832038219233,
+    "lcoe_usd_per_kWh_at_1kW_practical_density": 4.113799672453159
+  },
+  {
+    "learning_rate_scenario": "solar_analog_20pct",
+    "learning_rate": 0.2,
+    "cumulative_volume": 1,
+    "bop_cost_usd_per_skid": 8000.0,
+    "membrane_cost_usd_m2": 150.0,
+    "lcoe_usd_per_kWh_at_1kW_practical_density": 20.77968214777718
+  },
+  {
+    "learning_rate_scenario": "solar_analog_20pct",
+    "learning_rate": 0.2,
+    "cumulative_volume": 10,
+    "bop_cost_usd_per_skid": 3812.078999121796,
+    "membrane_cost_usd_m2": 71.47648123353368,
+    "lcoe_usd_per_kWh_at_1kW_practical_density": 9.901723740495937
+  },
+  {
+    "learning_rate_scenario": "solar_analog_20pct",
+    "learning_rate": 0.2,
+    "cumulative_volume": 100,
+    "bop_cost_usd_per_skid": 1816.4932869431793,
+    "membrane_cost_usd_m2": 34.05924913018461,
+    "lcoe_usd_per_kWh_at_1kW_practical_density": 4.718269140781284
+  },
+  {
+    "learning_rate_scenario": "solar_analog_20pct",
+    "learning_rate": 0.2,
+    "cumulative_volume": 1000,
+    "bop_cost_usd_per_skid": 865.5769889002272,
+    "membrane_cost_usd_m2": 16.22956854187926,
+    "lcoe_usd_per_kWh_at_1kW_practical_density": 2.2483018379720976
+  }
+]
