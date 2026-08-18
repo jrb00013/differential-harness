@@ -75,6 +75,29 @@ python -m scripts.protocol_history
 RMS amplitude, phase coherence, and an `eta_tink` estimate; see its
 module docstring for the underlying math.
 
+Round 3 (see [docs/ROADMAP_ROUND3.md](docs/ROADMAP_ROUND3.md) /
+[docs/IMPLEMENTATION_PLAN_ROUND3.md](docs/IMPLEMENTATION_PLAN_ROUND3.md))
+turns outward: real economics, real candidate sites, environmental
+framing, and a fouling test protocol.
+
+```bash
+# Real LCOE estimate + full optimistic/conservative sensitivity sweep.
+python -m scripts.lcoe_model --power-w 1000 --density-w-m2 8
+python -m scripts.lcoe_model --sensitivity
+
+# Fouling flux-decline check: fits L_p in chronological sub-windows of
+# one bench run and reports percent permeability decline.
+python -m scripts.calibrate_constants --csv data/bench/T1_baseline_*.csv --time-series
+```
+
+See [docs/ECONOMICS.md](docs/ECONOMICS.md) for the honest LCOE
+writeup (not cost-competitive with solar/wind/storage today, and why),
+[docs/CANDIDATE_SITES.md](docs/CANDIDATE_SITES.md) for real desalination-
+outfall and estuary site data, [docs/ENVIRONMENTAL_IMPACT.md](docs/ENVIRONMENTAL_IMPACT.md)
+for brine-discharge ecology and regulatory precedent, and
+[docs/FOULING_TEST_PROTOCOL.md](docs/FOULING_TEST_PROTOCOL.md) for the
+T1f fouling-resistance test phase.
+
 ## Research paper (PoC)
 
 **Joseph Black** and **Connor White** — *CHORUS-SGH-1: Brine-Gradient Power, UDT/AOR/VOH Vision, and Osmotic-Vortex Hydro* ([PDF](papers/Black_2026_CHORUS_SGH1_PoC.pdf) · [source](papers/black_2026_chorus_sgh1_poc.md))
